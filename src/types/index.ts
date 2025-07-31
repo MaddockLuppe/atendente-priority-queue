@@ -5,7 +5,7 @@ export interface Ticket {
   createdAt: Date;
   calledAt?: Date;
   completedAt?: Date;
-  attendantId?: string;
+  attendantId: string;
 }
 
 export interface Attendant {

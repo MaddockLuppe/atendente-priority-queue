@@ -16,12 +16,13 @@ const Index = () => {
   const {
     toast
   } = useToast();
-  const handleCreateTicket = (type: 'preferencial' | 'normal') => {
+  const handleCreateTicket = (type: 'preferencial' | 'normal', attendantId: string) => {
     try {
-      const ticket = createTicket(type);
+      const ticket = createTicket(type, attendantId);
+      const attendant = attendants.find(a => a.id === attendantId);
       toast({
         title: "Ficha gerada com sucesso!",
-        description: `Ficha ${ticket.number} (${type}) foi criada.`
+        description: `Ficha ${ticket.number} (${type}) foi criada para ${attendant?.name}.`
       });
     } catch (error) {
       toast({
@@ -32,20 +33,7 @@ const Index = () => {
     }
   };
   const handleCallNext = (attendantId: string) => {
-    try {
-      callNextTicket(attendantId);
-      const attendant = attendants.find(a => a.id === attendantId);
-      toast({
-        title: "Ficha chamada!",
-        description: `${attendant?.name} está atendendo a próxima ficha.`
-      });
-    } catch (error) {
-      toast({
-        title: "Erro ao chamar ficha",
-        description: "Não há fichas na fila.",
-        variant: "destructive"
-      });
-    }
+    // Função não utilizada mais - fichas vão diretamente para os atendentes
   };
   const handleComplete = (attendantId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
@@ -56,13 +44,13 @@ const Index = () => {
     });
   };
   const getNextTicketsForAttendant = () => {
-    return [...queueState.preferentialQueue, ...queueState.normalQueue];
+    return []; // Não há mais fila global
   };
   const getTotalQueue = () => {
-    return queueState.preferentialQueue.length + queueState.normalQueue.length;
+    return attendants.filter(a => a.isActive).length; // Mostra atendentes ativos
   };
   const hasTicketsInQueue = () => {
-    return getTotalQueue() > 0;
+    return false; // Não há mais fila
   };
   return <div className="min-h-screen bg-gradient-main">
       <div className="container mx-auto px-4 py-8 bg-red-600">
@@ -83,7 +71,7 @@ const Index = () => {
             <div className="flex items-center gap-3">
               <Clock className="w-6 h-6 text-primary" />
               <div>
-                <p className="text-sm text-muted-foreground">Fichas na Fila</p>
+                <p className="text-sm text-muted-foreground">Atendimentos Ativos</p>
                 <p className="text-2xl font-bold">{getTotalQueue()}</p>
               </div>
             </div>
@@ -105,8 +93,8 @@ const Index = () => {
             <div className="flex items-center gap-3">
               <Clock className="w-6 h-6 text-queue-preferential" />
               <div>
-                <p className="text-sm text-muted-foreground">Preferenciais</p>
-                <p className="text-2xl font-bold">{queueState.preferentialQueue.length}</p>
+                <p className="text-sm text-muted-foreground">Atendimentos Preferenciais</p>
+                <p className="text-2xl font-bold">{attendants.filter(a => a.currentTicket?.type === 'preferencial').length}</p>
               </div>
             </div>
           </div>
@@ -115,7 +103,7 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Painel de Gerenciamento de Fila */}
           <div className="lg:col-span-1">
-            <QueueManagement queueState={queueState} onCreateTicket={handleCreateTicket} />
+            <QueueManagement queueState={queueState} attendants={attendants} onCreateTicket={handleCreateTicket} />
           </div>
 
           {/* Grade de Atendentes */}

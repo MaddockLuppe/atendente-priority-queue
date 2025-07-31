@@ -1,16 +1,20 @@
+import { useState } from 'react';
 import { Plus, Users, Clock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { QueueState } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { QueueState, Attendant } from '@/types';
 
 interface QueueManagementProps {
   queueState: QueueState;
-  onCreateTicket: (type: 'preferencial' | 'normal') => void;
+  attendants: Attendant[];
+  onCreateTicket: (type: 'preferencial' | 'normal', attendantId: string) => void;
 }
 
-export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementProps) => {
-  const totalQueue = queueState.preferentialQueue.length + queueState.normalQueue.length;
+export const QueueManagement = ({ queueState, attendants, onCreateTicket }: QueueManagementProps) => {
+  const [selectedAttendant, setSelectedAttendant] = useState<string>('');
+  const totalQueue = attendants.filter(a => a.isActive).length;
   
   const canCreatePreferential = queueState.nextPreferentialNumber <= 2;
   const canCreateNormal = queueState.nextNormalNumber <= 10;
@@ -25,7 +29,7 @@ export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementP
           <div>
             <h2 className="text-xl font-bold">Gerenciamento de Fila</h2>
             <p className="text-muted-foreground">
-              {totalQueue} fichas aguardando atendimento
+              {totalQueue} atendimentos ativos
             </p>
           </div>
         </div>
@@ -36,7 +40,7 @@ export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementP
         </Badge>
       </div>
 
-      {/* Estatísticas da Fila */}
+      {/* Estatísticas dos Atendimentos */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="p-4 rounded-lg bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200">
           <div className="flex items-center gap-2 mb-2">
@@ -44,7 +48,7 @@ export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementP
             <span className="font-medium">Preferenciais</span>
           </div>
           <div className="text-2xl font-bold text-queue-preferential">
-            {queueState.preferentialQueue.length}
+            {attendants.filter(a => a.currentTicket?.type === 'preferencial').length}
           </div>
           <div className="text-sm text-muted-foreground">
             Próxima: P{queueState.nextPreferentialNumber > 2 ? 1 : queueState.nextPreferentialNumber}
@@ -57,7 +61,7 @@ export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementP
             <span className="font-medium">Normais</span>
           </div>
           <div className="text-2xl font-bold text-queue-normal">
-            {queueState.normalQueue.length}
+            {attendants.filter(a => a.currentTicket?.type === 'normal').length}
           </div>
           <div className="text-sm text-muted-foreground">
             Próxima: N{queueState.nextNormalNumber > 10 ? 1 : queueState.nextNormalNumber}
@@ -65,11 +69,35 @@ export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementP
         </div>
       </div>
 
+      {/* Seleção do Atendente */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Selecionar Atendente</label>
+        <Select value={selectedAttendant} onValueChange={setSelectedAttendant}>
+          <SelectTrigger>
+            <SelectValue placeholder="Escolha um atendente" />
+          </SelectTrigger>
+          <SelectContent>
+            {attendants
+              .filter(attendant => !attendant.isActive)
+              .map(attendant => (
+                <SelectItem key={attendant.id} value={attendant.id}>
+                  {attendant.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Botões de Criação */}
       <div className="space-y-3">
         <Button 
-          onClick={() => onCreateTicket('preferencial')}
-          disabled={!canCreatePreferential}
+          onClick={() => {
+            if (selectedAttendant) {
+              onCreateTicket('preferencial', selectedAttendant);
+              setSelectedAttendant('');
+            }
+          }}
+          disabled={!canCreatePreferential || !selectedAttendant}
           variant="preferential"
           size="lg"
           className="w-full"
@@ -80,8 +108,13 @@ export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementP
         </Button>
         
         <Button 
-          onClick={() => onCreateTicket('normal')}
-          disabled={!canCreateNormal}
+          onClick={() => {
+            if (selectedAttendant) {
+              onCreateTicket('normal', selectedAttendant);
+              setSelectedAttendant('');
+            }
+          }}
+          disabled={!canCreateNormal || !selectedAttendant}
           variant="normal"
           size="lg"
           className="w-full"
@@ -92,44 +125,6 @@ export const QueueManagement = ({ queueState, onCreateTicket }: QueueManagementP
         </Button>
       </div>
 
-      {/* Lista de Fichas na Fila */}
-      {totalQueue > 0 && (
-        <div className="mt-6">
-          <h3 className="font-medium mb-3">Ordem de Atendimento</h3>
-          <div className="space-y-2 max-h-40 overflow-y-auto">
-            {/* Preferenciais primeiro */}
-            {queueState.preferentialQueue.map((ticket, index) => (
-              <div 
-                key={ticket.id}
-                className="flex items-center justify-between p-2 rounded bg-orange-50 border border-orange-200"
-              >
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-queue-preferential text-white">{ticket.number}</Badge>
-                  <span className="text-sm">Preferencial</span>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  #{index + 1}
-                </span>
-              </div>
-            ))}
-            {/* Normais depois */}
-            {queueState.normalQueue.map((ticket, index) => (
-              <div 
-                key={ticket.id}
-                className="flex items-center justify-between p-2 rounded bg-blue-50 border border-blue-200"
-              >
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-queue-normal text-white">{ticket.number}</Badge>
-                  <span className="text-sm">Normal</span>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  #{queueState.preferentialQueue.length + index + 1}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </Card>
   );
 };

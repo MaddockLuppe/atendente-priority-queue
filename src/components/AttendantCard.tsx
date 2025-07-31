@@ -70,7 +70,6 @@ export const AttendantCard = ({
       {/* Ações */}
       <div className="flex gap-2">
         <Button onClick={onCallNext} disabled={!canCallNext || attendant.isActive} variant="default" className="flex-1 text-base">
-          <Phone size={16} className="mr-2" />
           Chamar Próxima
         </Button>
         

@@ -36,18 +36,23 @@ export const useTicketSystem = () => {
     return type === 'preferencial' ? `P${number}` : `N${number}`;
   }, []);
 
-  const createTicket = useCallback((type: 'preferencial' | 'normal'): Ticket => {
-    const isPreferential = type === 'preferencial';
-    const currentQueue = isPreferential ? queueState.preferentialQueue : queueState.normalQueue;
-    const maxNumber = isPreferential ? 2 : 10;
+  const createTicket = useCallback((type: 'preferencial' | 'normal', attendantId: string): Ticket => {
+    const attendant = attendantStates[attendantId];
     
-    // Verifica se já atingiu o limite
-    if (currentQueue.length >= maxNumber) {
-      throw new Error(`Limite de fichas ${type} atingido (${maxNumber} fichas)`);
+    // Verifica se o atendente já está ocupado
+    if (attendant?.isActive) {
+      throw new Error('Atendente já está ocupado');
     }
 
-    // Encontra o próximo número disponível
-    const usedNumbers = currentQueue.map(t => parseInt(t.number.substring(1)));
+    const isPreferential = type === 'preferencial';
+    const maxNumber = isPreferential ? 2 : 10;
+    
+    // Encontra o próximo número disponível baseado nos atendentes ativos
+    const allActiveTickets = Object.values(attendantStates)
+      .filter(a => a.currentTicket && a.currentTicket.type === type)
+      .map(a => a.currentTicket!);
+    
+    const usedNumbers = allActiveTickets.map(t => parseInt(t.number.substring(1)));
     let nextNumber = 1;
     for (let i = 1; i <= maxNumber; i++) {
       if (!usedNumbers.includes(i)) {
@@ -61,70 +66,36 @@ export const useTicketSystem = () => {
       number: generateTicketId(type, nextNumber),
       type,
       createdAt: new Date(),
+      calledAt: new Date(),
+      attendantId,
     };
 
-    setQueueState(prev => ({
-      ...prev,
-      [isPreferential ? 'preferentialQueue' : 'normalQueue']: [
-        ...prev[isPreferential ? 'preferentialQueue' : 'normalQueue'],
-        ticket
-      ].sort((a, b) => {
-        const aNum = parseInt(a.number.substring(1));
-        const bNum = parseInt(b.number.substring(1));
-        return aNum - bNum;
-      }),
-      [isPreferential ? 'nextPreferentialNumber' : 'nextNormalNumber']: nextNumber + 1
+    // Adiciona ficha diretamente ao atendente
+    setAttendantStates(prevAttendants => ({
+      ...prevAttendants,
+      [attendantId]: {
+        ...prevAttendants[attendantId],
+        currentTicket: ticket,
+        isActive: true,
+      }
+    }));
+
+    // Inicia timer de 15 minutos
+    const timerId = window.setTimeout(() => {
+      // Timer apenas para referência, o alerta é verificado pelo isTicketOverdue
+    }, 15 * 60 * 1000);
+
+    setTimers(prevTimers => ({
+      ...prevTimers,
+      [attendantId]: timerId
     }));
 
     return ticket;
-  }, [queueState, generateTicketId]);
+  }, [attendantStates, generateTicketId]);
 
   const callNextTicket = useCallback((attendantId: string) => {
-    setQueueState(prev => {
-      const nextTicket = prev.preferentialQueue[0] || prev.normalQueue[0];
-      
-      if (!nextTicket) return prev;
-
-      const isFromPreferential = prev.preferentialQueue[0] === nextTicket;
-      
-      const updatedTicket = {
-        ...nextTicket,
-        calledAt: new Date(),
-        attendantId,
-      };
-
-      setAttendantStates(prevAttendants => ({
-        ...prevAttendants,
-        [attendantId]: {
-          ...prevAttendants[attendantId],
-          currentTicket: updatedTicket,
-          isActive: true,
-        }
-      }));
-
-      // Inicia timer de 15 minutos
-      const timerId = window.setTimeout(() => {
-        setTimers(prevTimers => ({
-          ...prevTimers,
-          [attendantId]: Date.now() + (15 * 60 * 1000)
-        }));
-      }, 15 * 60 * 1000);
-
-      setTimers(prevTimers => ({
-        ...prevTimers,
-        [attendantId]: timerId
-      }));
-
-      return {
-        ...prev,
-        preferentialQueue: isFromPreferential 
-          ? prev.preferentialQueue.slice(1)
-          : prev.preferentialQueue,
-        normalQueue: isFromPreferential 
-          ? prev.normalQueue
-          : prev.normalQueue.slice(1),
-      };
-    });
+    // Esta função não é mais necessária já que as fichas vão diretamente para os atendentes
+    // Mantemos apenas para compatibilidade
   }, []);
 
   const completeTicket = useCallback((attendantId: string) => {
