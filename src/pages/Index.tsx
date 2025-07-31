@@ -4,89 +4,77 @@ import { AttendantCard } from '@/components/AttendantCard';
 import { QueueManagement } from '@/components/QueueManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Clock } from 'lucide-react';
-
 const Index = () => {
-  const { 
-    attendants, 
-    queueState, 
-    createTicket, 
-    callNextTicket, 
-    completeTicket, 
-    isTicketOverdue 
+  const {
+    attendants,
+    queueState,
+    createTicket,
+    callNextTicket,
+    completeTicket,
+    isTicketOverdue
   } = useTicketSystem();
-  
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   const handleCreateTicket = (type: 'preferencial' | 'normal') => {
     try {
       const ticket = createTicket(type);
       toast({
         title: "Ficha gerada com sucesso!",
-        description: `Ficha ${ticket.number} (${type}) foi criada.`,
+        description: `Ficha ${ticket.number} (${type}) foi criada.`
       });
     } catch (error) {
       toast({
         title: "Erro ao gerar ficha",
         description: error instanceof Error ? error.message : "Erro desconhecido",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleCallNext = (attendantId: string) => {
     try {
       callNextTicket(attendantId);
       const attendant = attendants.find(a => a.id === attendantId);
       toast({
         title: "Ficha chamada!",
-        description: `${attendant?.name} está atendendo a próxima ficha.`,
+        description: `${attendant?.name} está atendendo a próxima ficha.`
       });
     } catch (error) {
       toast({
         title: "Erro ao chamar ficha",
         description: "Não há fichas na fila.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleComplete = (attendantId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
     completeTicket(attendantId);
     toast({
       title: "Atendimento concluído!",
-      description: `${attendant?.name} finalizou o atendimento.`,
+      description: `${attendant?.name} finalizou o atendimento.`
     });
   };
-
   const getNextTicketsForAttendant = () => {
     return [...queueState.preferentialQueue, ...queueState.normalQueue];
   };
-
   const getTotalQueue = () => {
     return queueState.preferentialQueue.length + queueState.normalQueue.length;
   };
-
   const hasTicketsInQueue = () => {
     return getTotalQueue() > 0;
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-main">
-      <div className="container mx-auto px-4 py-8">
+  return <div className="min-h-screen bg-gradient-main">
+      <div className="container mx-auto px-4 py-8 bg-red-600">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
             <div className="p-3 rounded-full bg-white/20 backdrop-blur-sm">
               <Users className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-white">
-              Sistema de Gerenciamento de Atendentes
-            </h1>
+            <h1 className="text-4xl font-bold text-white">Sistema de Gerenciamento de Atendimentos</h1>
           </div>
-          <p className="text-white/90 text-lg">
-            Gerencie fichas e organize o atendimento de forma eficiente
-          </p>
+          <p className="text-white/90 text-lg">Controle de Atendimentos</p>
         </div>
 
         {/* Estatísticas Gerais */}
@@ -127,33 +115,17 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Painel de Gerenciamento de Fila */}
           <div className="lg:col-span-1">
-            <QueueManagement 
-              queueState={queueState}
-              onCreateTicket={handleCreateTicket}
-            />
+            <QueueManagement queueState={queueState} onCreateTicket={handleCreateTicket} />
           </div>
 
           {/* Grade de Atendentes */}
           <div className="lg:col-span-3">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {attendants.map((attendant) => (
-                <AttendantCard
-                  key={attendant.id}
-                  attendant={attendant}
-                  queueLength={getTotalQueue()}
-                  nextTickets={getNextTicketsForAttendant()}
-                  isOverdue={isTicketOverdue(attendant.id)}
-                  onCallNext={() => handleCallNext(attendant.id)}
-                  onComplete={() => handleComplete(attendant.id)}
-                  canCallNext={hasTicketsInQueue()}
-                />
-              ))}
+              {attendants.map(attendant => <AttendantCard key={attendant.id} attendant={attendant} queueLength={getTotalQueue()} nextTickets={getNextTicketsForAttendant()} isOverdue={isTicketOverdue(attendant.id)} onCallNext={() => handleCallNext(attendant.id)} onComplete={() => handleComplete(attendant.id)} canCallNext={hasTicketsInQueue()} />)}
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
