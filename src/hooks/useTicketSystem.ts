@@ -1,26 +1,20 @@
 import { useState, useCallback } from 'react';
-import { Ticket, Attendant, QueueState } from '@/types';
+import { Ticket, Attendant, QueueState, AttendmentHistory } from '@/types';
 
-const ATTENDANT_NAMES = [
+const INITIAL_ATTENDANT_NAMES = [
   "pai", "mae", "moane", "elizabeth", "jeovane", 
   "felipe", "luiz walter", "lara", "levi", "talles", "wellingtom"
 ];
 
 export const useTicketSystem = () => {
   // Inicializa atendentes
-  const [attendants] = useState<Attendant[]>(() =>
-    ATTENDANT_NAMES.map((name, index) => ({
+  const [attendants, setAttendants] = useState<Attendant[]>(() =>
+    INITIAL_ATTENDANT_NAMES.map((name, index) => ({
       id: `attendant-${index}`,
       name,
       isActive: false,
+      queueTickets: [],
     }))
-  );
-
-  const [attendantStates, setAttendantStates] = useState<Record<string, Attendant>>(() =>
-    attendants.reduce((acc, attendant) => ({
-      ...acc,
-      [attendant.id]: attendant
-    }), {})
   );
 
   const [queueState, setQueueState] = useState<QueueState>({
@@ -31,26 +25,46 @@ export const useTicketSystem = () => {
   });
 
   const [timers, setTimers] = useState<Record<string, number>>({});
+  const [history, setHistory] = useState<AttendmentHistory[]>([]);
 
   const generateTicketId = useCallback((type: 'preferencial' | 'normal', number: number): string => {
     return type === 'preferencial' ? `P${number}` : `N${number}`;
   }, []);
 
+  const addAttendant = useCallback((name: string) => {
+    const newId = `attendant-${Date.now()}`;
+    setAttendants(prev => [...prev, {
+      id: newId,
+      name,
+      isActive: false,
+      queueTickets: [],
+    }]);
+  }, []);
+
+  const updateAttendant = useCallback((id: string, name: string) => {
+    setAttendants(prev => prev.map(attendant => 
+      attendant.id === id ? { ...attendant, name } : attendant
+    ));
+  }, []);
+
+  const deleteAttendant = useCallback((id: string) => {
+    setAttendants(prev => prev.filter(attendant => attendant.id !== id));
+  }, []);
+
   const createTicket = useCallback((type: 'preferencial' | 'normal', attendantId: string): Ticket => {
-    const attendant = attendantStates[attendantId];
-    
-    // Verifica se o atendente já está ocupado
-    if (attendant?.isActive) {
-      throw new Error('Atendente já está ocupado');
+    const attendant = attendants.find(a => a.id === attendantId);
+    if (!attendant) {
+      throw new Error('Atendente não encontrado');
     }
 
     const isPreferential = type === 'preferencial';
     const maxNumber = isPreferential ? 2 : 10;
     
-    // Encontra o próximo número disponível baseado nos atendentes ativos
-    const allActiveTickets = Object.values(attendantStates)
-      .filter(a => a.currentTicket && a.currentTicket.type === type)
-      .map(a => a.currentTicket!);
+    // Encontra o próximo número disponível
+    const allActiveTickets = attendants.flatMap(a => [
+      ...(a.currentTicket && a.currentTicket.type === type ? [a.currentTicket] : []),
+      ...a.queueTickets.filter(t => t.type === type)
+    ]);
     
     const usedNumbers = allActiveTickets.map(t => parseInt(t.number.substring(1)));
     let nextNumber = 1;
@@ -66,19 +80,35 @@ export const useTicketSystem = () => {
       number: generateTicketId(type, nextNumber),
       type,
       createdAt: new Date(),
-      calledAt: new Date(),
       attendantId,
+      status: 'waiting',
     };
 
-    // Adiciona ficha diretamente ao atendente
-    setAttendantStates(prevAttendants => ({
-      ...prevAttendants,
-      [attendantId]: {
-        ...prevAttendants[attendantId],
-        currentTicket: ticket,
-        isActive: true,
-      }
-    }));
+    // Adiciona ficha à fila do atendente
+    setAttendants(prev => prev.map(a => 
+      a.id === attendantId 
+        ? { ...a, queueTickets: [...a.queueTickets, ticket] }
+        : a
+    ));
+
+    return ticket;
+  }, [attendants, generateTicketId]);
+
+  const callNextTicket = useCallback((attendantId: string) => {
+    const attendant = attendants.find(a => a.id === attendantId);
+    if (!attendant || attendant.currentTicket || attendant.queueTickets.length === 0) return;
+
+    // Prioriza fichas preferenciais
+    const nextTicket = attendant.queueTickets.find(t => t.type === 'preferencial') || 
+                      attendant.queueTickets[0];
+
+    if (!nextTicket) return;
+
+    const updatedTicket = {
+      ...nextTicket,
+      calledAt: new Date(),
+      status: 'in-service' as const,
+    };
 
     // Inicia timer de 15 minutos
     const timerId = window.setTimeout(() => {
@@ -90,17 +120,41 @@ export const useTicketSystem = () => {
       [attendantId]: timerId
     }));
 
-    return ticket;
-  }, [attendantStates, generateTicketId]);
-
-  const callNextTicket = useCallback((attendantId: string) => {
-    // Esta função não é mais necessária já que as fichas vão diretamente para os atendentes
-    // Mantemos apenas para compatibilidade
-  }, []);
+    setAttendants(prev => prev.map(a => 
+      a.id === attendantId 
+        ? { 
+            ...a, 
+            currentTicket: updatedTicket,
+            queueTickets: a.queueTickets.filter(t => t.id !== nextTicket.id),
+            isActive: true 
+          }
+        : a
+    ));
+  }, [attendants]);
 
   const completeTicket = useCallback((attendantId: string) => {
-    const attendant = attendantStates[attendantId];
+    const attendant = attendants.find(a => a.id === attendantId);
     if (!attendant?.currentTicket) return;
+
+    const completedTicket = {
+      ...attendant.currentTicket,
+      completedAt: new Date(),
+      status: 'completed' as const,
+    };
+
+    // Adiciona ao histórico
+    const historyEntry: AttendmentHistory = {
+      id: `history-${Date.now()}`,
+      attendantId,
+      attendantName: attendant.name,
+      ticketNumber: completedTicket.number,
+      ticketType: completedTicket.type,
+      startTime: completedTicket.calledAt!,
+      endTime: completedTicket.completedAt!,
+      date: new Date().toISOString().split('T')[0],
+    };
+
+    setHistory(prev => [...prev, historyEntry]);
 
     // Limpa timer
     if (timers[attendantId]) {
@@ -111,31 +165,41 @@ export const useTicketSystem = () => {
       });
     }
 
-    setAttendantStates(prev => ({
-      ...prev,
-      [attendantId]: {
-        ...prev[attendantId],
-        currentTicket: undefined,
-        isActive: false,
-      }
-    }));
-  }, [attendantStates, timers]);
+    setAttendants(prev => prev.map(a => 
+      a.id === attendantId 
+        ? { 
+            ...a, 
+            currentTicket: undefined,
+            isActive: a.queueTickets.length > 0 
+          }
+        : a
+    ));
+  }, [attendants, timers]);
 
   const isTicketOverdue = useCallback((attendantId: string): boolean => {
-    const attendant = attendantStates[attendantId];
+    const attendant = attendants.find(a => a.id === attendantId);
     if (!attendant?.currentTicket?.calledAt) return false;
     
     const now = Date.now();
     const calledTime = attendant.currentTicket.calledAt.getTime();
     return (now - calledTime) > (15 * 60 * 1000);
-  }, [attendantStates]);
+  }, [attendants]);
+
+  const getHistoryByDate = useCallback((date: string) => {
+    return history.filter(h => h.date === date);
+  }, [history]);
 
   return {
-    attendants: Object.values(attendantStates),
+    attendants,
     queueState,
+    history,
     createTicket,
     callNextTicket,
     completeTicket,
     isTicketOverdue,
+    addAttendant,
+    updateAttendant,
+    deleteAttendant,
+    getHistoryByDate,
   };
 };

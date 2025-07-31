@@ -2,7 +2,19 @@ import { useState } from 'react';
 import { useTicketSystem } from '@/hooks/useTicketSystem';
 import { AttendantCard } from '@/components/AttendantCard';
 import { QueueManagement } from '@/components/QueueManagement';
+import { AttendantManager } from '@/components/AttendantManager';
+import { HistoryViewer } from '@/components/HistoryViewer';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Users, Clock } from 'lucide-react';
 const Index = () => {
   const {
@@ -11,11 +23,14 @@ const Index = () => {
     createTicket,
     callNextTicket,
     completeTicket,
-    isTicketOverdue
+    isTicketOverdue,
+    addAttendant,
+    updateAttendant,
+    deleteAttendant,
+    getHistoryByDate,
   } = useTicketSystem();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const [confirmingCompletion, setConfirmingCompletion] = useState<string | null>(null);
   const handleCreateTicket = (type: 'preferencial' | 'normal', attendantId: string) => {
     try {
       const ticket = createTicket(type, attendantId);
@@ -33,24 +48,31 @@ const Index = () => {
     }
   };
   const handleCallNext = (attendantId: string) => {
-    // Função não utilizada mais - fichas vão diretamente para os atendentes
-  };
-  const handleComplete = (attendantId: string) => {
+    callNextTicket(attendantId);
     const attendant = attendants.find(a => a.id === attendantId);
-    completeTicket(attendantId);
     toast({
-      title: "Atendimento concluído!",
-      description: `${attendant?.name} finalizou o atendimento.`
+      title: "Ficha chamada!",
+      description: `${attendant?.name} chamou a próxima ficha.`
     });
   };
-  const getNextTicketsForAttendant = () => {
-    return []; // Não há mais fila global
+
+  const handleComplete = (attendantId: string) => {
+    setConfirmingCompletion(attendantId);
+  };
+
+  const confirmComplete = () => {
+    if (confirmingCompletion) {
+      const attendant = attendants.find(a => a.id === confirmingCompletion);
+      completeTicket(confirmingCompletion);
+      toast({
+        title: "Atendimento concluído!",
+        description: `${attendant?.name} finalizou o atendimento.`
+      });
+      setConfirmingCompletion(null);
+    }
   };
   const getTotalQueue = () => {
-    return attendants.filter(a => a.isActive).length; // Mostra atendentes ativos
-  };
-  const hasTicketsInQueue = () => {
-    return false; // Não há mais fila
+    return attendants.reduce((total, a) => total + a.queueTickets.length, 0);
   };
   return <div className="min-h-screen bg-gradient-main">
       <div className="container mx-auto px-4 py-8 bg-red-600">
@@ -63,6 +85,21 @@ const Index = () => {
             <h1 className="text-4xl font-bold text-white">Sistema de Gerenciamento de Atendimentos</h1>
           </div>
           <p className="text-white/90 text-lg">Controle de Atendimentos</p>
+          
+          {/* Controles de Gerenciamento */}
+          <div className="flex justify-center gap-4 mt-6">
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg p-4">
+              <AttendantManager
+                attendants={attendants}
+                onAddAttendant={addAttendant}
+                onUpdateAttendant={updateAttendant}
+                onDeleteAttendant={deleteAttendant}
+              />
+            </div>
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg p-4">
+              <HistoryViewer onGetHistoryByDate={getHistoryByDate} />
+            </div>
+          </div>
         </div>
 
         {/* Estatísticas Gerais */}
@@ -109,10 +146,39 @@ const Index = () => {
           {/* Grade de Atendentes */}
           <div className="lg:col-span-3">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {attendants.map(attendant => <AttendantCard key={attendant.id} attendant={attendant} queueLength={getTotalQueue()} nextTickets={getNextTicketsForAttendant()} isOverdue={isTicketOverdue(attendant.id)} onCallNext={() => handleCallNext(attendant.id)} onComplete={() => handleComplete(attendant.id)} canCallNext={hasTicketsInQueue()} />)}
+              {attendants.map(attendant => (
+                <AttendantCard 
+                  key={attendant.id} 
+                  attendant={attendant} 
+                  queueLength={attendant.queueTickets.length} 
+                  nextTickets={attendant.queueTickets} 
+                  isOverdue={isTicketOverdue(attendant.id)} 
+                  onCallNext={() => handleCallNext(attendant.id)} 
+                  onComplete={() => handleComplete(attendant.id)} 
+                  canCallNext={attendant.queueTickets.length > 0}
+                />
+              ))}
             </div>
           </div>
         </div>
+
+        {/* Diálogo de Confirmação */}
+        <AlertDialog open={!!confirmingCompletion} onOpenChange={() => setConfirmingCompletion(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Conclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja concluir este atendimento? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmComplete}>
+                Concluir Atendimento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>;
 };

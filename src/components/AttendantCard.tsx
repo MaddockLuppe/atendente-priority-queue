@@ -1,4 +1,4 @@
-import { User, Clock, CheckCircle, Phone } from 'lucide-react';
+import { User, Clock, CheckCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,20 +56,25 @@ export const AttendantCard = ({
 
       {/* Próximas Fichas */}
       <div className="mb-4">
-        <h4 className="font-medium mb-2">Próximas Fichas</h4>
+        <h4 className="font-medium mb-2">Fila de Espera ({attendant.queueTickets.length})</h4>
         <div className="space-y-2 max-h-40 overflow-y-auto">
-          {nextTickets.length > 0 ? nextTickets.slice(0, 3).map(ticket => <TicketCard key={ticket.id} ticket={ticket} />) : <div className="p-3 text-center text-muted-foreground text-sm border border-border rounded">
+          {attendant.queueTickets.length > 0 ? attendant.queueTickets.slice(0, 3).map(ticket => <TicketCard key={ticket.id} ticket={ticket} />) : <div className="p-3 text-center text-muted-foreground text-sm border border-border rounded">
               Fila vazia
             </div>}
-          {nextTickets.length > 3 && <div className="text-center text-sm text-muted-foreground">
-              +{nextTickets.length - 3} mais na fila
+          {attendant.queueTickets.length > 3 && <div className="text-center text-sm text-muted-foreground">
+              +{attendant.queueTickets.length - 3} mais na fila
             </div>}
         </div>
       </div>
 
       {/* Ações */}
       <div className="flex gap-2">
-        <Button onClick={onCallNext} disabled={!canCallNext || attendant.isActive} variant="default" className="flex-1 text-base">
+        <Button 
+          onClick={onCallNext} 
+          disabled={attendant.currentTicket !== undefined || attendant.queueTickets.length === 0} 
+          variant="default" 
+          className="flex-1 text-base"
+        >
           Chamar Próxima
         </Button>
         
