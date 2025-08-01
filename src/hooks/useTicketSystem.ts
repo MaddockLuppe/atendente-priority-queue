@@ -60,13 +60,13 @@ export const useTicketSystem = () => {
     const isPreferential = type === 'preferencial';
     const maxNumber = isPreferential ? 2 : 10;
     
-    // Encontra o próximo número disponível
-    const allActiveTickets = attendants.flatMap(a => [
-      ...(a.currentTicket && a.currentTicket.type === type ? [a.currentTicket] : []),
-      ...a.queueTickets.filter(t => t.type === type)
-    ]);
+    // Encontra o próximo número disponível apenas para este atendente
+    const attendantActiveTickets = [
+      ...(attendant.currentTicket && attendant.currentTicket.type === type ? [attendant.currentTicket] : []),
+      ...attendant.queueTickets.filter(t => t.type === type)
+    ];
     
-    const usedNumbers = allActiveTickets.map(t => parseInt(t.number.substring(1)));
+    const usedNumbers = attendantActiveTickets.map(t => parseInt(t.number.substring(1)));
     let nextNumber = 1;
     for (let i = 1; i <= maxNumber; i++) {
       if (!usedNumbers.includes(i)) {
