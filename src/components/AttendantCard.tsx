@@ -11,6 +11,7 @@ interface AttendantCardProps {
   isOverdue: boolean;
   onCallNext: () => void;
   onComplete: () => void;
+  onRemoveTicket: (ticketId: string) => void;
   canCallNext: boolean;
 }
 export const AttendantCard = ({
@@ -20,6 +21,7 @@ export const AttendantCard = ({
   isOverdue,
   onCallNext,
   onComplete,
+  onRemoveTicket,
   canCallNext
 }: AttendantCardProps) => {
   return <Card className="p-6 shadow-elevated bg-gradient-card border-0">
@@ -49,18 +51,40 @@ export const AttendantCard = ({
           <Clock size={16} />
           Atendimento Atual
         </h4>
-        {attendant.currentTicket ? <TicketCard ticket={attendant.currentTicket} isOverdue={isOverdue} showActions onComplete={onComplete} /> : <div className="p-4 text-center text-muted-foreground border-2 border-dashed border-border rounded-lg">
+        {attendant.currentTicket ? (
+          <TicketCard 
+            ticket={attendant.currentTicket} 
+            isOverdue={isOverdue} 
+            showActions 
+            showRemove
+            onComplete={onComplete}
+            onRemove={() => onRemoveTicket(attendant.currentTicket!.id)}
+          />
+        ) : (
+          <div className="p-4 text-center text-muted-foreground border-2 border-dashed border-border rounded-lg">
             Nenhuma ficha em atendimento
-          </div>}
+          </div>
+        )}
       </div>
 
       {/* Próximas Fichas */}
       <div className="mb-4">
         <h4 className="font-medium mb-2">Fila de Espera ({attendant.queueTickets.length})</h4>
         <div className="space-y-2 max-h-40 overflow-y-auto">
-          {attendant.queueTickets.length > 0 ? attendant.queueTickets.slice(0, 3).map(ticket => <TicketCard key={ticket.id} ticket={ticket} />) : <div className="p-3 text-center text-muted-foreground text-sm border border-border rounded">
+          {attendant.queueTickets.length > 0 ? (
+            attendant.queueTickets.slice(0, 3).map(ticket => (
+              <TicketCard 
+                key={ticket.id} 
+                ticket={ticket} 
+                showRemove
+                onRemove={() => onRemoveTicket(ticket.id)}
+              />
+            ))
+          ) : (
+            <div className="p-3 text-center text-muted-foreground text-sm border border-border rounded">
               Fila vazia
-            </div>}
+            </div>
+          )}
           {attendant.queueTickets.length > 3 && <div className="text-center text-sm text-muted-foreground">
               +{attendant.queueTickets.length - 3} mais na fila
             </div>}

@@ -185,6 +185,43 @@ export const useTicketSystem = () => {
     return (now - calledTime) > (15 * 60 * 1000);
   }, [attendants]);
 
+  const removeTicket = useCallback((attendantId: string, ticketId: string) => {
+    const attendant = attendants.find(a => a.id === attendantId);
+    if (!attendant) return;
+
+    // Remove da fila de espera
+    if (attendant.queueTickets.some(t => t.id === ticketId)) {
+      setAttendants(prev => prev.map(a => 
+        a.id === attendantId 
+          ? { ...a, queueTickets: a.queueTickets.filter(t => t.id !== ticketId) }
+          : a
+      ));
+      return;
+    }
+
+    // Remove da ficha atual
+    if (attendant.currentTicket?.id === ticketId) {
+      // Limpa timer se existir
+      if (timers[attendantId]) {
+        clearTimeout(timers[attendantId]);
+        setTimers(prev => {
+          const { [attendantId]: _, ...rest } = prev;
+          return rest;
+        });
+      }
+
+      setAttendants(prev => prev.map(a => 
+        a.id === attendantId 
+          ? { 
+              ...a, 
+              currentTicket: undefined,
+              isActive: a.queueTickets.length > 0 
+            }
+          : a
+      ));
+    }
+  }, [attendants, timers]);
+
   const getHistoryByDate = useCallback((date: string) => {
     return history.filter(h => h.date === date);
   }, [history]);
@@ -196,6 +233,7 @@ export const useTicketSystem = () => {
     createTicket,
     callNextTicket,
     completeTicket,
+    removeTicket,
     isTicketOverdue,
     addAttendant,
     updateAttendant,

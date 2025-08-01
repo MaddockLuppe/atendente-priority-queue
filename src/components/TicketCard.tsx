@@ -1,4 +1,4 @@
-import { Clock, AlertTriangle } from 'lucide-react';
+import { Clock, AlertTriangle, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,16 +8,20 @@ interface TicketCardProps {
   ticket: Ticket;
   isOverdue?: boolean;
   showActions?: boolean;
+  showRemove?: boolean;
   onCall?: () => void;
   onComplete?: () => void;
+  onRemove?: () => void;
 }
 
 export const TicketCard = ({ 
   ticket, 
   isOverdue = false, 
-  showActions = false,
-  onCall,
-  onComplete 
+  showActions = false, 
+  showRemove = false,
+  onCall, 
+  onComplete,
+  onRemove 
 }: TicketCardProps) => {
   const getTicketTypeColor = (type: Ticket['type']) => {
     return type === 'preferencial' ? 'queue-preferential' : 'queue-normal';
@@ -68,9 +72,9 @@ export const TicketCard = ({
         )}
       </div>
 
-      {showActions && (
+      {(showActions || showRemove) && (
         <div className="flex gap-2">
-          {!ticket.calledAt && onCall && (
+          {showActions && !ticket.calledAt && onCall && (
             <Button 
               onClick={onCall}
               variant="default"
@@ -80,7 +84,7 @@ export const TicketCard = ({
               Chamar
             </Button>
           )}
-          {ticket.calledAt && onComplete && (
+          {showActions && ticket.calledAt && onComplete && (
             <Button 
               onClick={onComplete}
               variant="success"
@@ -88,6 +92,16 @@ export const TicketCard = ({
               className="flex-1"
             >
               Concluir
+            </Button>
+          )}
+          {showRemove && onRemove && (
+            <Button 
+              onClick={onRemove}
+              variant="destructive"
+              size="sm"
+              className="px-3"
+            >
+              <X size={16} />
             </Button>
           )}
         </div>

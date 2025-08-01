@@ -24,6 +24,7 @@ const Index = () => {
     createTicket,
     callNextTicket,
     completeTicket,
+    removeTicket,
     isTicketOverdue,
     addAttendant,
     updateAttendant,
@@ -71,6 +72,17 @@ const Index = () => {
       });
       setConfirmingCompletion(null);
     }
+  };
+
+  const handleRemoveTicket = (attendantId: string, ticketId: string) => {
+    const attendant = attendants.find(a => a.id === attendantId);
+    const ticket = attendant?.queueTickets.find(t => t.id === ticketId) || attendant?.currentTicket;
+    
+    removeTicket(attendantId, ticketId);
+    toast({
+      title: "Ficha removida!",
+      description: `Ficha ${ticket?.number} foi removida.`
+    });
   };
   const getTotalQueue = () => {
     return attendants.reduce((total, a) => total + a.queueTickets.length, 0);
@@ -140,7 +152,8 @@ const Index = () => {
                     nextTickets={attendant.queueTickets} 
                     isOverdue={isTicketOverdue(attendant.id)} 
                     onCallNext={() => handleCallNext(attendant.id)} 
-                    onComplete={() => handleComplete(attendant.id)} 
+                    onComplete={() => handleComplete(attendant.id)}
+                    onRemoveTicket={(ticketId) => handleRemoveTicket(attendant.id, ticketId)}
                     canCallNext={attendant.queueTickets.length > 0}
                   />
                 ))}

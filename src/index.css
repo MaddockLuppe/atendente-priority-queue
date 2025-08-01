@@ -6,50 +6,52 @@
 
 @layer base {
   :root {
-    /* Cores principais em tons de vermelho */
+    /* Cores principais em tons suaves de vermelho */
     --background: 0 0% 100%;
-    --foreground: 0 0% 15%;
+    --foreground: 0 0% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 15%;
+    --card-foreground: 0 0% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
+    --popover-foreground: 0 0% 20%;
 
-    --primary: 0 72% 51%;
+    --primary: 0 65% 58%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 0 84% 45%;
+    --primary-hover: 0 70% 52%;
 
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 15%;
+    --secondary: 0 0% 97%;
+    --secondary-foreground: 0 0% 25%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 0 0% 97%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 14 100% 57%;
+    --accent: 12 85% 65%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 75% 65%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
+    --border: 0 0% 92%;
     --input: 0 0% 100%;
-    --ring: 0 72% 51%;
+    --ring: 0 65% 58%;
 
-    /* Gradientes personalizados */
-    --gradient-bg: linear-gradient(135deg, hsl(0, 84%, 60%) 0%, hsl(14, 100%, 57%) 50%, hsl(0, 72%, 51%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 98%) 100%);
+    /* Gradientes suaves personalizados */
+    --gradient-bg: linear-gradient(135deg, hsl(0, 70%, 68%) 0%, hsl(12, 85%, 70%) 50%, hsl(0, 65%, 62%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 99%) 100%);
+    --gradient-soft: linear-gradient(135deg, hsl(0, 25%, 95%) 0%, hsl(12, 35%, 96%) 100%);
     
-    /* Cores específicas do sistema */
-    --queue-preferential: 14 100% 57%;
-    --queue-normal: 220 91% 51%;
-    --attendant-active: 142 76% 36%;
-    --alert-warning: 45 93% 47%;
-    --alert-danger: 0 84% 60%;
+    /* Cores específicas do sistema - versões suaves */
+    --queue-preferential: 12 80% 70%;
+    --queue-normal: 220 75% 65%;
+    --attendant-active: 142 65% 55%;
+    --alert-warning: 45 85% 60%;
+    --alert-danger: 0 70% 68%;
 
-    /* Sombras elegantes */
-    --shadow-card: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.06);
-    --shadow-elevated: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -2px hsl(0 0% 0% / 0.05);
+    /* Sombras suaves */
+    --shadow-card: 0 2px 8px -2px hsl(0 0% 0% / 0.08), 0 1px 3px -1px hsl(0 0% 0% / 0.04);
+    --shadow-elevated: 0 8px 25px -5px hsl(0 0% 0% / 0.08), 0 3px 10px -3px hsl(0 0% 0% / 0.03);
+    --shadow-soft: 0 1px 3px hsl(0 0% 0% / 0.05);
     
     /* Transições suaves */
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
