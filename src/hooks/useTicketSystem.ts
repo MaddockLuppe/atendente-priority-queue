@@ -149,7 +149,7 @@ export const useTicketSystem = () => {
       attendantName: attendant.name,
       ticketNumber: completedTicket.number,
       ticketType: completedTicket.type,
-      startTime: completedTicket.calledAt!,
+      startTime: completedTicket.calledAt!, // Mantém o horário de início do atendimento
       endTime: completedTicket.completedAt!,
       date: new Date().toISOString().split('T')[0],
     };
@@ -226,6 +226,14 @@ export const useTicketSystem = () => {
     return history.filter(h => h.date === date);
   }, [history]);
 
+  const toggleAttendantActive = useCallback((attendantId: string) => {
+    setAttendants(prev => prev.map(a => 
+      a.id === attendantId 
+        ? { ...a, isActive: !a.isActive } 
+        : a
+    ));
+  }, []);
+
   return {
     attendants,
     queueState,
@@ -239,5 +247,6 @@ export const useTicketSystem = () => {
     updateAttendant,
     deleteAttendant,
     getHistoryByDate,
+    toggleAttendantActive,
   };
 };

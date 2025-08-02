@@ -1,8 +1,9 @@
-import { Clock, AlertTriangle, X } from 'lucide-react';
+import { Clock, AlertTriangle, X, Timer } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Ticket } from '@/types';
+import { useState, useEffect } from 'react';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -34,6 +35,35 @@ export const TicketCard = ({
     });
   };
 
+  const [remainingTime, setRemainingTime] = useState<string>('');
+
+  useEffect(() => {
+    if (!ticket.calledAt) return;
+
+    const calculateRemainingTime = () => {
+      const now = new Date();
+      const calledTime = ticket.calledAt!.getTime();
+      const elapsedMs = now.getTime() - calledTime;
+      const totalDurationMs = 15 * 60 * 1000; // 15 minutos em milissegundos
+      const remainingMs = Math.max(0, totalDurationMs - elapsedMs);
+      
+      const minutes = Math.floor(remainingMs / (60 * 1000));
+      const seconds = Math.floor((remainingMs % (60 * 1000)) / 1000);
+      
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    // Atualiza o tempo restante inicialmente
+    setRemainingTime(calculateRemainingTime());
+
+    // Configura um intervalo para atualizar o tempo restante a cada segundo
+    const intervalId = setInterval(() => {
+      setRemainingTime(calculateRemainingTime());
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [ticket.calledAt]);
+
   return (
     <Card className={`p-4 shadow-card transition-all duration-300 ${
       isOverdue ? 'border-alert-danger bg-red-50' : 'bg-gradient-card'
@@ -58,9 +88,9 @@ export const TicketCard = ({
         </div>
         
         {ticket.calledAt && (
-          <div className="flex items-center gap-1 text-muted-foreground text-sm">
-            <Clock size={14} />
-            <span>{formatTime(ticket.calledAt)}</span>
+          <div className={`flex items-center gap-1 text-sm ${isOverdue ? 'text-alert-danger' : 'text-muted-foreground'}`}>
+            <Timer size={14} />
+            <span>{remainingTime}</span>
           </div>
         )}
       </div>
