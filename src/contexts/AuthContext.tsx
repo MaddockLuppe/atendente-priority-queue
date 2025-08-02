@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return JSON.parse(storedPasswords);
     }
     // Default admin password
-    return { '1': 'admin' };
+    return { '1': 'lumenix' };
   });
 
   useEffect(() => {
