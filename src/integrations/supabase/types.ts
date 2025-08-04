@@ -14,7 +14,169 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attendance_history: {
+        Row: {
+          attendant_id: string
+          attendant_name: string
+          created_at: string
+          end_time: string
+          id: string
+          service_date: string
+          start_time: string
+          ticket_number: string
+          ticket_type: string
+        }
+        Insert: {
+          attendant_id: string
+          attendant_name: string
+          created_at?: string
+          end_time: string
+          id?: string
+          service_date: string
+          start_time: string
+          ticket_number: string
+          ticket_type: string
+        }
+        Update: {
+          attendant_id?: string
+          attendant_name?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          service_date?: string
+          start_time?: string
+          ticket_number?: string
+          ticket_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_history_attendant_id_fkey"
+            columns: ["attendant_id"]
+            isOneToOne: false
+            referencedRelation: "attendants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendants: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          password_hash: string
+          role: string
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          password_hash: string
+          role?: string
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          password_hash?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      queue_state: {
+        Row: {
+          id: string
+          next_normal_number: number
+          next_preferential_number: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          next_normal_number?: number
+          next_preferential_number?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          next_normal_number?: number
+          next_preferential_number?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tickets: {
+        Row: {
+          attendant_id: string | null
+          called_at: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          status: string
+          ticket_number: string
+          ticket_type: string
+        }
+        Insert: {
+          attendant_id?: string | null
+          called_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          ticket_number: string
+          ticket_type: string
+        }
+        Update: {
+          attendant_id?: string | null
+          called_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          ticket_number?: string
+          ticket_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_attendant_id_fkey"
+            columns: ["attendant_id"]
+            isOneToOne: false
+            referencedRelation: "attendants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -54,14 +54,22 @@ const Index = () => {
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
-  const handleCreateTicket = (type: 'preferencial' | 'normal', attendantId: string) => {
+  const handleCreateTicket = async (type: 'preferencial' | 'normal', attendantId: string) => {
     try {
-      const ticket = createTicket(type, attendantId);
+      const ticket = await createTicket(type, attendantId);
       const attendant = attendants.find(a => a.id === attendantId);
-      toast({
-        title: "Ficha gerada com sucesso!",
-        description: `Ficha ${ticket.number} (${type}) foi criada para ${attendant?.name}.`
-      });
+      if (ticket) {
+        toast({
+          title: "Ficha gerada com sucesso!",
+          description: `Ficha ${ticket.number} (${type}) foi criada para ${attendant?.name}.`
+        });
+      } else {
+        toast({
+          title: "Erro ao gerar ficha",
+          description: "Não foi possível gerar a ficha",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       toast({
         title: "Erro ao gerar ficha",
@@ -70,9 +78,9 @@ const Index = () => {
       });
     }
   };
-  const handleCallNext = (attendantId: string) => {
-    callNextTicket(attendantId);
+  const handleCallNext = async (attendantId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
+    await callNextTicket(attendantId);
     toast({
       title: "Ficha chamada!",
       description: `${attendant?.name} chamou a próxima ficha.`
@@ -83,10 +91,10 @@ const Index = () => {
     setConfirmingCompletion(attendantId);
   };
 
-  const confirmComplete = () => {
+  const confirmComplete = async () => {
     if (confirmingCompletion) {
       const attendant = attendants.find(a => a.id === confirmingCompletion);
-      completeTicket(confirmingCompletion);
+      await completeTicket(confirmingCompletion);
       toast({
         title: "Atendimento concluído!",
         description: `${attendant?.name} finalizou o atendimento.`
@@ -95,20 +103,20 @@ const Index = () => {
     }
   };
 
-  const handleRemoveTicket = (attendantId: string, ticketId: string) => {
+  const handleRemoveTicket = async (attendantId: string, ticketId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
     const ticket = attendant?.queueTickets.find(t => t.id === ticketId) || attendant?.currentTicket;
     
-    removeTicket(attendantId, ticketId);
+    await removeTicket(attendantId, ticketId);
     toast({
       title: "Ficha removida!",
       description: `Ficha ${ticket?.number} foi removida.`
     });
   };
 
-  const handleToggleActive = (attendantId: string) => {
+  const handleToggleActive = async (attendantId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
-    toggleAttendantActive(attendantId);
+    await toggleAttendantActive(attendantId);
     
     if (attendant) {
       toast({
