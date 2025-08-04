@@ -22,19 +22,28 @@ const Login = () => {
     }
   }, [user, navigate]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (login(username, password)) {
-      toast({
-        title: "Login realizado com sucesso",
-        description: "Bem-vindo ao sistema!",
-      });
-      navigate('/atendimentos');
-    } else {
+    try {
+      const success = await login(username, password);
+      if (success) {
+        toast({
+          title: "Login realizado com sucesso",
+          description: "Bem-vindo ao sistema!",
+        });
+        navigate('/atendimentos');
+      } else {
+        toast({
+          title: "Erro no login",
+          description: "Usuário ou senha incorretos",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
       toast({
         title: "Erro no login",
-        description: "Usuário ou senha incorretos",
+        description: "Erro interno do sistema",
         variant: "destructive",
       });
     }
