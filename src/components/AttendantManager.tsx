@@ -9,10 +9,10 @@ import { Attendant } from '@/types';
 
 interface AttendantManagerProps {
   attendants: Attendant[];
-  onAddAttendant: (name: string) => Promise<void>;
-  onUpdateAttendant: (id: string, name: string) => Promise<void>;
-  onDeleteAttendant: (id: string) => Promise<void>;
-  onToggleActive?: (id: string) => Promise<void>;
+  onAddAttendant: (name: string) => void;
+  onUpdateAttendant: (id: string, name: string) => void;
+  onDeleteAttendant: (id: string) => void;
+  onToggleActive?: (id: string) => void;
 }
 
 export const AttendantManager = ({
@@ -44,18 +44,14 @@ export const AttendantManager = ({
                 </span>
               </div>
               <div className="flex items-center gap-2">                
-                 <div className="flex items-center gap-1">
-                   <Switch 
-                     id={`active-${attendant.id}`}
-                     checked={attendant.isActive}
-                     onCheckedChange={async () => {
-                       if (onToggleActive) {
-                         await onToggleActive(attendant.id);
-                       }
-                     }}
-                   />
-                   <Label htmlFor={`active-${attendant.id}`} className="sr-only">Ativar/Desativar</Label>
-                 </div>
+                <div className="flex items-center gap-1">
+                  <Switch 
+                    id={`active-${attendant.id}`}
+                    checked={attendant.isActive}
+                    onCheckedChange={() => onToggleActive && onToggleActive(attendant.id)}
+                  />
+                  <Label htmlFor={`active-${attendant.id}`} className="sr-only">Ativar/Desativar</Label>
+                </div>
               </div>
             </div>
           </Card>

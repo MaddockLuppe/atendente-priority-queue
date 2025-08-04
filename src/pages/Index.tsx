@@ -54,22 +54,14 @@ const Index = () => {
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
-  const handleCreateTicket = async (type: 'preferencial' | 'normal', attendantId: string) => {
+  const handleCreateTicket = (type: 'preferencial' | 'normal', attendantId: string) => {
     try {
-      const ticket = await createTicket(type, attendantId);
+      const ticket = createTicket(type, attendantId);
       const attendant = attendants.find(a => a.id === attendantId);
-      if (ticket) {
-        toast({
-          title: "Ficha gerada com sucesso!",
-          description: `Ficha ${ticket.number} (${type}) foi criada para ${attendant?.name}.`
-        });
-      } else {
-        toast({
-          title: "Erro ao gerar ficha",
-          description: "Não foi possível gerar a ficha",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Ficha gerada com sucesso!",
+        description: `Ficha ${ticket.number} (${type}) foi criada para ${attendant?.name}.`
+      });
     } catch (error) {
       toast({
         title: "Erro ao gerar ficha",
@@ -78,9 +70,9 @@ const Index = () => {
       });
     }
   };
-  const handleCallNext = async (attendantId: string) => {
+  const handleCallNext = (attendantId: string) => {
+    callNextTicket(attendantId);
     const attendant = attendants.find(a => a.id === attendantId);
-    await callNextTicket(attendantId);
     toast({
       title: "Ficha chamada!",
       description: `${attendant?.name} chamou a próxima ficha.`
@@ -91,10 +83,10 @@ const Index = () => {
     setConfirmingCompletion(attendantId);
   };
 
-  const confirmComplete = async () => {
+  const confirmComplete = () => {
     if (confirmingCompletion) {
       const attendant = attendants.find(a => a.id === confirmingCompletion);
-      await completeTicket(confirmingCompletion);
+      completeTicket(confirmingCompletion);
       toast({
         title: "Atendimento concluído!",
         description: `${attendant?.name} finalizou o atendimento.`
@@ -103,20 +95,20 @@ const Index = () => {
     }
   };
 
-  const handleRemoveTicket = async (attendantId: string, ticketId: string) => {
+  const handleRemoveTicket = (attendantId: string, ticketId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
     const ticket = attendant?.queueTickets.find(t => t.id === ticketId) || attendant?.currentTicket;
     
-    await removeTicket(attendantId, ticketId);
+    removeTicket(attendantId, ticketId);
     toast({
       title: "Ficha removida!",
       description: `Ficha ${ticket?.number} foi removida.`
     });
   };
 
-  const handleToggleActive = async (attendantId: string) => {
+  const handleToggleActive = (attendantId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
-    await toggleAttendantActive(attendantId);
+    toggleAttendantActive(attendantId);
     
     if (attendant) {
       toast({
@@ -380,7 +372,7 @@ const Index = () => {
                       .filter(u => u.id !== user?.id && u.role !== 'admin')
                       .map(u => (
                         <SelectItem key={u.id} value={u.id}>
-                          {u.name} ({u.role === 'admin' ? 'Admin' : 'Usuário'})
+                          {u.name} ({u.role === 'admin' ? 'Admin' : u.role === 'attendant' ? 'Atendente' : 'Visualizador'})
                         </SelectItem>
                       ))}
                   </SelectContent>
