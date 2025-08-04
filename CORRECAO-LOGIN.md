@@ -23,11 +23,11 @@ Foram criados os seguintes arquivos para corrigir os problemas:
    powershell -ExecutionPolicy Bypass -File .\abrir-pagina.ps1
    ```
 
-2. Na página aberta no navegador, clique no botão "Verificar/Criar Usuário Lucas".
+2. Na página aberta no navegador, clique no botão "Verificar/Criar Usuário Admin".
 
-3. A página irá verificar se o usuário lucas existe e, caso não exista, irá criá-lo como administrador com as seguintes credenciais:
-   - Usuário: `lucas`
-   - Senha: `12345`
+3. A página irá verificar se o usuário admin existe e, caso não exista, irá criá-lo como administrador com as seguintes credenciais:
+   - Usuário: `admin`
+   - Senha: `admin`
 
 ### Opção 2: Usando Node.js (avançado)
 
@@ -46,20 +46,20 @@ Foram criados os seguintes arquivos para corrigir os problemas:
    ```
 
 4. O script irá verificar se o usuário administrador existe e, caso não exista, irá criá-lo com as seguintes credenciais:
-   - Usuário: `lucas`
-   - Senha: `12345`
+   - Usuário: `admin`
+   - Senha: `admin`
 
 ## Verificação
 
 Após executar um dos métodos acima, você poderá fazer login no sistema usando as seguintes credenciais:
 
 - Usuário: `admin`
-- Senha: `admin123`
+- Senha: `admin`
 
 ## Observações
 
 - O usuário admin criado terá o papel (role) de "admin", o que lhe dará acesso a todas as funcionalidades do sistema.
-- Se o usuário admin já existir, mas a senha estiver incorreta, o script irá atualizá-la para "admin123".
+- Se o usuário admin já existir, mas a senha estiver incorreta, o script irá atualizá-la para "admin".
 - Se o usuário admin já existir e a senha estiver correta, o script não fará nenhuma alteração.
 - A página HTML foi melhorada para carregar a biblioteca bcrypt.js de múltiplas fontes, incluindo uma cópia local, para evitar o erro "bcrypt is not defined".
 - Foram adicionadas verificações para garantir que as bibliotecas necessárias estejam disponíveis antes de executar as operações.

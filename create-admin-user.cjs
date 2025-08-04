@@ -11,15 +11,15 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // Dados do usuário administrador
-const username = 'lucas';
-const password = '12345';
-const displayName = 'Lucas Administrador';
+const username = 'admin';
+const password = 'admin';
+const displayName = 'Administrador';
 const role = 'admin';
 
 async function createAdminUser() {
   try {
     console.log('Iniciando correção do login...');
-    console.log('Passo 1: Verificando usuário lucas...');
+    console.log('Passo 1: Verificando usuário admin...');
     
     // Verificar se o usuário admin já existe
     const { data: existingUser, error: checkError } = await supabase
@@ -35,16 +35,16 @@ async function createAdminUser() {
     }
 
     if (existingUser) {
-      console.log(`Usuário lucas encontrado (ID: ${existingUser.id}). Verificando senha...`);
+      console.log(`Usuário admin encontrado (ID: ${existingUser.id}). Verificando senha...`);
       
       // Verificar se a senha está correta
       const isPasswordValid = await bcrypt.compare(password, existingUser.password_hash);
       
       if (isPasswordValid) {
-        console.log('A senha do usuário lucas está correta!');
+        console.log('A senha do usuário admin está correta!');
         console.log('Login corrigido com sucesso!');
       } else {
-        console.log('A senha do usuário lucas está incorreta. Atualizando...');
+        console.log('A senha do usuário admin está incorreta. Atualizando...');
         
         // Atualizar a senha do usuário existente
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -62,13 +62,13 @@ async function createAdminUser() {
           return;
         }
         
-        console.log('Senha do usuário lucas atualizada com sucesso!');
+        console.log('Senha do usuário admin atualizada com sucesso!');
         console.log('Login corrigido com sucesso!');
       }
       return;
     }
 
-    console.log('Usuário lucas não encontrado. Criando novo usuário administrador...');
+    console.log('Usuário admin não encontrado. Criando novo usuário administrador...');
     
     // Gerar hash da senha
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -94,7 +94,7 @@ async function createAdminUser() {
       return;
     }
 
-    console.log('Usuário lucas criado com sucesso:', {
+    console.log('Usuário admin criado com sucesso:', {
       id: data.id,
       username: data.username,
       displayName: data.display_name,
