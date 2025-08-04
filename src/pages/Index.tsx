@@ -380,7 +380,7 @@ const Index = () => {
                       .filter(u => u.id !== user?.id && u.role !== 'admin')
                       .map(u => (
                         <SelectItem key={u.id} value={u.id}>
-                          {u.name} ({u.role === 'admin' ? 'Admin' : u.role === 'attendant' ? 'Atendente' : 'Visualizador'})
+                          {u.name} ({u.role === 'admin' ? 'Admin' : 'Usuário'})
                         </SelectItem>
                       ))}
                   </SelectContent>

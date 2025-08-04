@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
 
-export type UserRole = 'admin' | 'attendant' | 'viewer';
+export type UserRole = 'admin' | 'user';
 
 export interface User {
   id: string;

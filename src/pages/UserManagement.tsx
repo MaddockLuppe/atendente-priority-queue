@@ -48,7 +48,7 @@ const UserManagement = () => {
     username: '',
     password: '',
     name: '',
-    role: 'attendant' as UserRole,
+    role: 'user' as UserRole,
   });
 
   // Estado para o formulário de edição
@@ -121,7 +121,7 @@ const UserManagement = () => {
       username: '',
       password: '',
       name: '',
-      role: 'attendant',
+      role: 'user',
     });
   };
 
@@ -229,10 +229,8 @@ const UserManagement = () => {
     switch (role) {
       case 'admin':
         return <Badge className="bg-blue-500">Administrador</Badge>;
-      case 'attendant':
-        return <Badge className="bg-green-500">Atendente</Badge>;
-      case 'viewer':
-        return <Badge className="bg-gray-500">Visualizador</Badge>;
+      case 'user':
+        return <Badge className="bg-green-500">Usuário</Badge>;
       default:
         return <Badge>{role}</Badge>;
     }
@@ -311,8 +309,7 @@ const UserManagement = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="attendant">Atendente</SelectItem>
-                    <SelectItem value="viewer">Visualizador</SelectItem>
+                    <SelectItem value="user">Usuário</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -433,8 +430,7 @@ const UserManagement = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="attendant">Atendente</SelectItem>
-                    <SelectItem value="viewer">Visualizador</SelectItem>
+                    <SelectItem value="user">Usuário</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
