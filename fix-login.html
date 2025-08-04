@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrigir Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .info { color: blue; }
+        .code-block {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .solution-card {
+            background-color: #e8f4fd;
+            border-left: 5px solid #0d6efd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Corrigir Problema de Login</h1>
+    
+    <div class="solution-card">
+        <h2>Solução para o Problema de Login</h2>
+        <p>Esta ferramenta irá corrigir o problema de login realizando as seguintes ações:</p>
+        <ol>
+            <li>Gerar um novo hash para a senha 'admin123' usando bcrypt</li>
+            <li>Atualizar o hash da senha do usuário admin no banco de dados</li>
+            <li>Verificar se o login funciona com a nova senha</li>
+        </ol>
+    </div>
+    
+    <div class="container">
+        <h2>Corrigir Senha do Admin</h2>
+        <p>Esta operação irá gerar um novo hash para a senha 'admin123' e atualizar no banco de dados.</p>
+        <button id="fixLoginButton">Corrigir Login</button>
+        <div id="fixResult" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Testar Login</h2>
+        <div style="margin-bottom: 15px;">
+            <label for="username">Usuário:</label>
+            <input type="text" id="username" value="admin" style="padding: 8px; margin: 0 10px;">
+            <label for="password">Senha:</label>
+            <input type="password" id="password" value="admin123" style="padding: 8px; margin: 0 10px;">
+        </div>
+        <button id="testLoginButton">Testar Login</button>
+        <div id="testResult" style="margin-top: 20px;"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script>
+        const SUPABASE_URL = "https://rahidenugbgnfrddtpxm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhaGlkZW51Z2JnbmZyZGR0cHhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMjA4NTgsImV4cCI6MjA2OTg5Njg1OH0.ybEvAnEUQPjvxh6ipQypONxW6iDxvnPO6MurroW-lZA";
+
+        // Corrigir login
+        document.getElementById('fixLoginButton').addEventListener('click', async () => {
+            const result = document.getElementById('fixResult');
+            result.innerHTML = '<p><strong>Iniciando correção do login...</strong></p>';
+            
+            try {
+                // Passo 1: Verificar se o usuário admin existe
+                result.innerHTML += '<p class="info">Passo 1: Verificando usuário admin...</p>';
+                
+                const checkResponse = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?username=eq.admin&select=id,username,display_name,role,password_hash`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!checkResponse.ok) {
+                    throw new Error(`Erro HTTP: ${checkResponse.status}`);
+                }
+                
+                const data = await checkResponse.json();
+                
+                if (!data || data.length === 0) {
+                    result.innerHTML += '<p class="error">Usuário admin não encontrado! Não é possível corrigir.</p>';
+                    return;
+                }
+                
+                const adminUser = data[0];
+                result.innerHTML += `<p class="success">Usuário admin encontrado (ID: ${adminUser.id}).</p>`;
+                
+                // Passo 2: Gerar novo hash para a senha 'admin123'
+                result.innerHTML += '<p class="info">Passo 2: Gerando novo hash para a senha "admin123"...</p>';
+                
+                // Verificar se o bcrypt está disponível
+                if (typeof dcodeIO === 'undefined' || typeof dcodeIO.bcrypt === 'undefined') {
+                    result.innerHTML += '<p class="error">Biblioteca bcrypt.js não está disponível!</p>';
+                    return;
+                }
+                
+                const password = 'admin123';
+                const newHash = await dcodeIO.bcrypt.hash(password, 10);
+                
+                result.innerHTML += `<p class="success">Novo hash gerado: <code>${newHash}</code></p>`;
+                
+                // Verificar se o novo hash funciona
+                const isNewHashValid = await dcodeIO.bcrypt.compare(password, newHash);
+                if (!isNewHashValid) {
+                    result.innerHTML += '<p class="error">Erro: O novo hash não valida a senha corretamente!</p>';
+                    return;
+                }
+                
+                result.innerHTML += '<p class="success">Verificação do novo hash: Válido</p>';
+                
+                // Passo 3: Atualizar o hash da senha no banco de dados
+                result.innerHTML += '<p class="info">Passo 3: Atualizando hash da senha no banco de dados...</p>';
+                
+                const updateResponse = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${adminUser.id}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            password_hash: newHash
+                        })
+                    }
+                );
+                
+                if (!updateResponse.ok) {
+                    throw new Error(`Erro HTTP ao atualizar: ${updateResponse.status}`);
+                }
+                
+                result.innerHTML += '<p class="success">Hash da senha atualizado com sucesso no banco de dados!</p>';
+                
+                // Passo 4: Verificar se a atualização foi bem-sucedida
+                result.innerHTML += '<p class="info">Passo 4: Verificando se a atualização foi bem-sucedida...</p>';
+                
+                const verifyResponse = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?id=eq.${adminUser.id}&select=password_hash`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!verifyResponse.ok) {
+                    throw new Error(`Erro HTTP: ${verifyResponse.status}`);
+                }
+                
+                const updatedData = await verifyResponse.json();
+                
+                if (!updatedData || updatedData.length === 0) {
+                    result.innerHTML += '<p class="error">Erro: Não foi possível verificar a atualização!</p>';
+                    return;
+                }
+                
+                const updatedUser = updatedData[0];
+                const isHashUpdated = updatedUser.password_hash === newHash;
+                
+                if (isHashUpdated) {
+                    result.innerHTML += '<p class="success">Verificação bem-sucedida: O hash foi atualizado corretamente!</p>';
+                } else {
+                    result.innerHTML += '<p class="error">Erro: O hash não foi atualizado corretamente!</p>';
+                    return;
+                }
+                
+                // Passo 5: Conclusão
+                result.innerHTML += `
+                    <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; border-left: 5px solid #28a745; margin-top: 20px;">
+                        <h3 style="margin-top: 0;">Correção Concluída com Sucesso!</h3>
+                        <p>O hash da senha do usuário admin foi atualizado com sucesso.</p>
+                        <p>Agora você deve conseguir fazer login com:</p>
+                        <ul>
+                            <li><strong>Usuário:</strong> admin</li>
+                            <li><strong>Senha:</strong> admin123</li>
+                        </ul>
+                        <p>Use o botão "Testar Login" abaixo para verificar se o login funciona corretamente.</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                result.innerHTML += `<p class="error">Erro durante a correção: ${error.message}</p>`;
+                console.error('Erro durante a correção:', error);
+            }
+        });
+
+        // Testar login
+        document.getElementById('testLoginButton').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const result = document.getElementById('testResult');
+            
+            result.innerHTML = `<p><strong>Testando login com usuário: ${username}...</strong></p>`;
+            
+            try {
+                // Buscar usuário
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id,username,display_name,role,password_hash`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    result.innerHTML += `<p class="error">Usuário ${username} não encontrado!</p>`;
+                    return;
+                }
+                
+                const user = data[0];
+                
+                // Verificar senha usando bcrypt
+                if (typeof dcodeIO === 'undefined' || typeof dcodeIO.bcrypt === 'undefined') {
+                    result.innerHTML += '<p class="error">Biblioteca bcrypt.js não está disponível!</p>';
+                    return;
+                }
+                
+                const isPasswordValid = await dcodeIO.bcrypt.compare(password, user.password_hash);
+                
+                if (isPasswordValid) {
+                    result.innerHTML += `
+                        <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            <h3 style="margin-top: 0; color: #28a745;">Login Bem-Sucedido!</h3>
+                            <p>A senha está correta para o usuário ${username}.</p>
+                            <p><strong>Detalhes do usuário:</strong></p>
+                            <ul>
+                                <li><strong>ID:</strong> ${user.id}</li>
+                                <li><strong>Usuário:</strong> ${user.username}</li>
+                                <li><strong>Nome:</strong> ${user.display_name}</li>
+                                <li><strong>Função:</strong> ${user.role}</li>
+                            </ul>
+                            <p>Agora você deve conseguir fazer login na aplicação principal.</p>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML += `
+                        <div style="background-color: #f8d7da; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            <h3 style="margin-top: 0; color: #721c24;">Falha no Login!</h3>
+                            <p>A senha está incorreta para o usuário ${username}.</p>
+                            <p>Tente usar a senha correta ou corrigir o hash da senha usando o botão "Corrigir Login" acima.</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML += `<p class="error">Erro ao testar login: ${error.message}</p>`;
+                console.error('Erro ao testar login:', error);
+            }
+        });
+    </script>
+</body>
+</html>

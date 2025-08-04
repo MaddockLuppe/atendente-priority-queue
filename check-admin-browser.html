@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar Usuário Admin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>Verificação do Usuário Admin</h1>
+    
+    <div class="container">
+        <h2>Verificar Usuário Admin</h2>
+        <button id="checkAdminButton">Verificar Admin</button>
+        <div id="adminResult" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Listar Todos os Usuários</h2>
+        <button id="listUsersButton">Listar Usuários</button>
+        <div id="usersResult" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Testar Login</h2>
+        <div style="margin-bottom: 10px;">
+            <label for="username">Usuário:</label>
+            <input type="text" id="username" value="admin" style="padding: 5px; margin-right: 10px;">
+            <label for="password">Senha:</label>
+            <input type="password" id="password" value="admin123" style="padding: 5px;">
+        </div>
+        <button id="testLoginButton">Testar Login</button>
+        <div id="loginResult" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://rahidenugbgnfrddtpxm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhaGlkZW51Z2JnbmZyZGR0cHhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMjA4NTgsImV4cCI6MjA2OTg5Njg1OH0.ybEvAnEUQPjvxh6ipQypONxW6iDxvnPO6MurroW-lZA";
+
+        // Verificar usuário admin
+        document.getElementById('checkAdminButton').addEventListener('click', async () => {
+            const result = document.getElementById('adminResult');
+            result.innerHTML = '<p>Verificando usuário admin...</p>';
+            
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?username=eq.admin&select=id,username,display_name,role,password_hash`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    result.innerHTML = '<p class="error">Usuário admin não encontrado!</p>';
+                    return;
+                }
+                
+                const adminUser = data[0];
+                const correctPasswordHash = '$2a$10$K.gF7qzO8wN6hHhGqf/ZLeQZ8xVlM6HwZ8zP9vGpU6lK8yZ7xJ1Xu';
+                const isCorrectHash = adminUser.password_hash === correctPasswordHash;
+                
+                let html = `
+                    <h3>Usuário Admin Encontrado:</h3>
+                    <p><strong>ID:</strong> ${adminUser.id}</p>
+                    <p><strong>Usuário:</strong> ${adminUser.username}</p>
+                    <p><strong>Nome:</strong> ${adminUser.display_name}</p>
+                    <p><strong>Função:</strong> <span class="${adminUser.role === 'admin' ? 'success' : 'error'}"> 
+                        ${adminUser.role} ${adminUser.role !== 'admin' ? '(deveria ser admin)' : ''}
+                    </span></p>
+                    <p><strong>Hash da Senha:</strong> <span class="${isCorrectHash ? 'success' : 'error'}"> 
+                        ${isCorrectHash ? 'Correto' : 'Incorreto'}
+                    </span></p>
+                    <pre>${adminUser.password_hash}</pre>
+                    <p><strong>Hash Esperado:</strong></p>
+                    <pre>${correctPasswordHash}</pre>
+                `;
+                
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML = `<p class="error">Erro ao verificar usuário admin: ${error.message}</p>`;
+                console.error('Erro ao verificar usuário admin:', error);
+            }
+        });
+
+        // Listar todos os usuários
+        document.getElementById('listUsersButton').addEventListener('click', async () => {
+            const result = document.getElementById('usersResult');
+            result.innerHTML = '<p>Carregando usuários...</p>';
+            
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?select=id,username,display_name,role,password_hash`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    result.innerHTML = '<p class="warning">Nenhum usuário encontrado!</p>';
+                    return;
+                }
+                
+                let html = `<h3>Usuários Encontrados (${data.length}):</h3><ul>`;
+                
+                data.forEach(user => {
+                    html += `
+                        <li>
+                            <p><strong>ID:</strong> ${user.id}</p>
+                            <p><strong>Usuário:</strong> ${user.username}</p>
+                            <p><strong>Nome:</strong> ${user.display_name}</p>
+                            <p><strong>Função:</strong> ${user.role}</p>
+                            <p><strong>Hash da Senha:</strong></p>
+                            <pre>${user.password_hash}</pre>
+                        </li>
+                    `;
+                });
+                
+                html += '</ul>';
+                result.innerHTML = html;
+            } catch (error) {
+                result.innerHTML = `<p class="error">Erro ao listar usuários: ${error.message}</p>`;
+                console.error('Erro ao listar usuários:', error);
+            }
+        });
+
+        // Testar login
+        document.getElementById('testLoginButton').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const result = document.getElementById('loginResult');
+            
+            result.innerHTML = `<p>Testando login com usuário: ${username}...</p>`;
+            
+            try {
+                // Buscar usuário
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id,username,display_name,role,password_hash`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    result.innerHTML = `<p class="error">Usuário ${username} não encontrado!</p>`;
+                    return;
+                }
+                
+                const user = data[0];
+                
+                // Não podemos verificar a senha no navegador sem bcrypt.js
+                result.innerHTML = `
+                    <h3>Usuário encontrado:</h3>
+                    <p><strong>ID:</strong> ${user.id}</p>
+                    <p><strong>Usuário:</strong> ${user.username}</p>
+                    <p><strong>Nome:</strong> ${user.display_name}</p>
+                    <p><strong>Função:</strong> ${user.role}</p>
+                    <p><strong>Hash da senha:</strong></p>
+                    <pre>${user.password_hash}</pre>
+                    <p class="warning">Não é possível verificar a senha no navegador sem bcrypt.js</p>
+                    <p>A senha fornecida foi: ${password}</p>
+                `;
+            } catch (error) {
+                result.innerHTML = `<p class="error">Erro no login: ${error.message}</p>`;
+                console.error('Erro no login:', error);
+            }
+        });
+    </script>
+</body>
+</html>

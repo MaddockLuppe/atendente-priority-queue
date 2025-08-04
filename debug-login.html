@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug de Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .info { color: blue; }
+        .code-block {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug de Login</h1>
+    
+    <div class="container">
+        <h2>Verificação Detalhada de Login</h2>
+        <p>Esta ferramenta verifica detalhadamente o processo de login, incluindo a verificação da senha com bcrypt.</p>
+        
+        <div style="margin-bottom: 15px;">
+            <label for="username">Usuário:</label>
+            <input type="text" id="username" value="admin" style="padding: 8px; margin: 0 10px;">
+            <label for="password">Senha:</label>
+            <input type="password" id="password" value="admin123" style="padding: 8px; margin: 0 10px;">
+        </div>
+        
+        <button id="debugLoginButton">Verificar Login</button>
+        <div id="debugResult" style="margin-top: 20px;"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+    <script>
+        const SUPABASE_URL = "https://rahidenugbgnfrddtpxm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhaGlkZW51Z2JnbmZyZGR0cHhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMjA4NTgsImV4cCI6MjA2OTg5Njg1OH0.ybEvAnEUQPjvxh6ipQypONxW6iDxvnPO6MurroW-lZA";
+        const CORRECT_PASSWORD_HASH = '$2a$10$K.gF7qzO8wN6hHhGqf/ZLeQZ8xVlM6HwZ8zP9vGpU6lK8yZ7xJ1Xu';
+
+        document.getElementById('debugLoginButton').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const result = document.getElementById('debugResult');
+            
+            result.innerHTML = '<p><strong>Iniciando verificação detalhada de login...</strong></p>';
+            
+            try {
+                // Passo 1: Buscar usuário no banco de dados
+                result.innerHTML += '<p class="info">Passo 1: Buscando usuário no banco de dados...</p>';
+                
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id,username,display_name,role,password_hash`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    result.innerHTML += `<p class="error">Usuário '${username}' não encontrado no banco de dados!</p>`;
+                    return;
+                }
+                
+                const user = data[0];
+                result.innerHTML += `<p class="success">Usuário '${username}' encontrado no banco de dados.</p>`;
+                
+                // Passo 2: Exibir informações do usuário
+                result.innerHTML += '<p class="info">Passo 2: Informações do usuário encontrado:</p>';
+                result.innerHTML += `
+                    <table>
+                        <tr><th>Campo</th><th>Valor</th></tr>
+                        <tr><td>ID</td><td>${user.id}</td></tr>
+                        <tr><td>Usuário</td><td>${user.username}</td></tr>
+                        <tr><td>Nome</td><td>${user.display_name}</td></tr>
+                        <tr><td>Função</td><td>${user.role}</td></tr>
+                        <tr><td>Hash da Senha</td><td><code>${user.password_hash}</code></td></tr>
+                    </table>
+                `;
+                
+                // Passo 3: Verificar se o hash da senha está correto
+                result.innerHTML += '<p class="info">Passo 3: Verificando hash da senha...</p>';
+                
+                const isCorrectHash = user.password_hash === CORRECT_PASSWORD_HASH;
+                if (isCorrectHash) {
+                    result.innerHTML += '<p class="success">O hash da senha no banco de dados corresponde ao hash esperado.</p>';
+                } else {
+                    result.innerHTML += `
+                        <p class="error">O hash da senha no banco de dados NÃO corresponde ao hash esperado!</p>
+                        <p>Hash atual: <code>${user.password_hash}</code></p>
+                        <p>Hash esperado: <code>${CORRECT_PASSWORD_HASH}</code></p>
+                    `;
+                }
+                
+                // Passo 4: Verificar a senha usando bcrypt
+                result.innerHTML += '<p class="info">Passo 4: Verificando senha com bcrypt...</p>';
+                
+                try {
+                    // Verificar se o bcrypt está disponível
+                    if (typeof dcodeIO === 'undefined' || typeof dcodeIO.bcrypt === 'undefined') {
+                        result.innerHTML += '<p class="error">Biblioteca bcrypt.js não está disponível!</p>';
+                        return;
+                    }
+                    
+                    // Verificar a senha atual com o hash do banco de dados
+                    const isPasswordValid = await dcodeIO.bcrypt.compare(password, user.password_hash);
+                    
+                    if (isPasswordValid) {
+                        result.innerHTML += `<p class="success">A senha '${password}' é válida para o hash atual do banco de dados.</p>`;
+                    } else {
+                        result.innerHTML += `<p class="error">A senha '${password}' NÃO é válida para o hash atual do banco de dados!</p>`;
+                    }
+                    
+                    // Verificar a senha com o hash esperado
+                    const isPasswordValidWithExpectedHash = await dcodeIO.bcrypt.compare(password, CORRECT_PASSWORD_HASH);
+                    
+                    if (isPasswordValidWithExpectedHash) {
+                        result.innerHTML += `<p class="success">A senha '${password}' é válida para o hash esperado.</p>`;
+                    } else {
+                        result.innerHTML += `<p class="error">A senha '${password}' NÃO é válida para o hash esperado!</p>`;
+                    }
+                    
+                    // Gerar um novo hash para a senha atual
+                    const newHash = await dcodeIO.bcrypt.hash(password, 10);
+                    result.innerHTML += `<p class="info">Novo hash gerado para a senha '${password}': <code>${newHash}</code></p>`;
+                    
+                    // Verificar o novo hash
+                    const isNewHashValid = await dcodeIO.bcrypt.compare(password, newHash);
+                    result.innerHTML += `<p class="${isNewHashValid ? 'success' : 'error'}">Verificação do novo hash: ${isNewHashValid ? 'Válido' : 'Inválido'}</p>`;
+                    
+                } catch (bcryptError) {
+                    result.innerHTML += `<p class="error">Erro ao verificar senha com bcrypt: ${bcryptError.message}</p>`;
+                    console.error('Erro ao verificar senha com bcrypt:', bcryptError);
+                }
+                
+                // Passo 5: Simular o processo de login do AuthContext.tsx
+                result.innerHTML += '<p class="info">Passo 5: Simulando o processo de login do AuthContext.tsx...</p>';
+                
+                result.innerHTML += `
+                    <div class="code-block">
+                        <p>Código de login em AuthContext.tsx:</p>
+                        <pre>
+// Função de login em AuthContext.tsx
+const login = async (username: string, password: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, role, password_hash')
+      .eq('username', username)
+      .single();
+
+    if (error || !data) return false;
+
+    const isPasswordValid = await bcrypt.compare(password, data.password_hash);
+    
+    if (isPasswordValid) {
+      const loggedInUser: User = {
+        id: data.id,
+        username: data.username,
+        name: data.display_name,
+        role: data.role as UserRole
+      };
+      
+      setUser(loggedInUser);
+      localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error during login:', error);
+    return false;
+  }
+};</pre>
+                    </div>
+                `;
+                
+                try {
+                    // Simular o processo de login
+                    const isPasswordValid = await dcodeIO.bcrypt.compare(password, user.password_hash);
+                    
+                    if (isPasswordValid) {
+                        const loggedInUser = {
+                            id: user.id,
+                            username: user.username,
+                            name: user.display_name,
+                            role: user.role
+                        };
+                        
+                        result.innerHTML += `
+                            <p class="success">Login simulado com sucesso!</p>
+                            <p>Usuário logado:</p>
+                            <pre>${JSON.stringify(loggedInUser, null, 2)}</pre>
+                        `;
+                    } else {
+                        result.innerHTML += '<p class="error">Login simulado falhou: Senha inválida!</p>';
+                    }
+                } catch (loginError) {
+                    result.innerHTML += `<p class="error">Erro ao simular login: ${loginError.message}</p>`;
+                    console.error('Erro ao simular login:', loginError);
+                }
+                
+                // Passo 6: Conclusão e recomendações
+                result.innerHTML += '<p class="info">Passo 6: Conclusão e recomendações</p>';
+                
+                if (!isCorrectHash) {
+                    result.innerHTML += `
+                        <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 5px solid #ffc107;">
+                            <h3 style="margin-top: 0;">Problema Identificado: Hash da Senha Incorreto</h3>
+                            <p>O hash da senha do usuário admin no banco de dados não corresponde ao hash esperado.</p>
+                            <p><strong>Recomendação:</strong> Atualize o hash da senha do usuário admin para o valor correto:</p>
+                            <pre>${CORRECT_PASSWORD_HASH}</pre>
+                            <p>Você pode usar a página "update-admin.html" para fazer essa atualização.</p>
+                        </div>
+                    `;
+                } else {
+                    const isPasswordValid = await dcodeIO.bcrypt.compare(password, user.password_hash);
+                    
+                    if (!isPasswordValid) {
+                        result.innerHTML += `
+                            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 5px solid #ffc107;">
+                                <h3 style="margin-top: 0;">Problema Identificado: Senha Incorreta</h3>
+                                <p>A senha '${password}' não é válida para o hash armazenado no banco de dados.</p>
+                                <p><strong>Recomendação:</strong> Tente usar a senha correta ou atualize o hash da senha para um novo valor.</p>
+                            </div>
+                        `;
+                    } else {
+                        result.innerHTML += `
+                            <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; border-left: 5px solid #28a745;">
+                                <h3 style="margin-top: 0;">Tudo Parece Correto!</h3>
+                                <p>O hash da senha no banco de dados está correto e a senha '${password}' é válida.</p>
+                                <p>Se ainda estiver tendo problemas para fazer login, verifique:</p>
+                                <ul>
+                                    <li>Se o bcrypt está funcionando corretamente na aplicação</li>
+                                    <li>Se há algum problema na lógica de autenticação</li>
+                                    <li>Se há algum problema na conexão com o banco de dados</li>
+                                </ul>
+                            </div>
+                        `;
+                    }
+                }
+                
+            } catch (error) {
+                result.innerHTML += `<p class="error">Erro durante a verificação: ${error.message}</p>`;
+                console.error('Erro durante a verificação:', error);
+            }
+        });
+    </script>
+</body>
+</html>
