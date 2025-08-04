@@ -98,14 +98,14 @@
 </head>
 <body>
     <div class="container">
-        <h1>Correção de Login - Criar Usuário Admin</h1>
-        <p>Esta ferramenta irá verificar se o usuário admin existe e, caso não exista, irá criá-lo.</p>
+        <h1>Correção de Login - Criar Usuário Administrador</h1>
+        <p>Esta ferramenta irá verificar se o usuário lucas existe e, caso não exista, irá criá-lo como administrador.</p>
     </div>
 
     <div class="container">
-        <h2>Criar/Verificar Usuário Admin</h2>
-        <p>Clique no botão abaixo para verificar e criar o usuário admin se necessário.</p>
-        <button id="createAdminButton">Verificar/Criar Admin</button>
+        <h2>Criar/Verificar Usuário Administrador</h2>
+        <p>Clique no botão abaixo para verificar e criar o usuário lucas como administrador se necessário.</p>
+        <button id="createAdminButton">Verificar/Criar Usuário Lucas</button>
         <div id="result" style="margin-top: 20px;"></div>
     </div>
 
@@ -130,11 +130,11 @@
                 if (typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') {
                     throw new Error('A API crypto.randomUUID não está disponível no seu navegador. Use um navegador mais recente.');
                 }
-                // Passo 1: Verificar se o usuário admin existe
-                result.innerHTML += '<p class="info">Passo 1: Verificando usuário admin...</p>';
+                // Passo 1: Verificar se o usuário lucas existe
+                result.innerHTML += '<p class="info">Passo 1: Verificando usuário lucas...</p>';
                 
                 const checkResponse = await fetch(
-                    `${SUPABASE_URL}/rest/v1/profiles?username=eq.admin&select=id,username,display_name,role,password_hash`,
+                    `${SUPABASE_URL}/rest/v1/profiles?username=eq.lucas&select=id,username,display_name,role,password_hash`,
                     {
                         method: 'GET',
                         headers: {
@@ -151,13 +151,13 @@
                 const data = await checkResponse.json();
                 
                 if (!data || data.length === 0) {
-                    result.innerHTML += '<p class="warning">Usuário admin não encontrado. Criando novo usuário admin...</p>';
+                    result.innerHTML += '<p class="warning">Usuário lucas não encontrado. Criando novo usuário administrador...</p>';
                     
-                    // Passo 2: Criar usuário admin
-                    result.innerHTML += '<p class="info">Passo 2: Criando usuário admin...</p>';
+                    // Passo 2: Criar usuário lucas como administrador
+                    result.innerHTML += '<p class="info">Passo 2: Criando usuário lucas como administrador...</p>';
                     
                     // Gerar hash da senha
-                    const password = 'admin123';
+                    const password = '12345';
                     const hashedPassword = await bcrypt.hash(password, 10);
                     
                     // Gerar UUID para user_id
@@ -175,8 +175,8 @@
                             },
                             body: JSON.stringify({
                                 user_id: userId,
-                                username: 'admin',
-                                display_name: 'Administrador',
+                                username: 'lucas',
+                                display_name: 'Lucas Administrador',
                                 role: 'admin',
                                 password_hash: hashedPassword
                             })
@@ -190,7 +190,7 @@
                     const newUser = await createResponse.json();
                     
                     result.innerHTML += `
-                        <p class="success">Usuário admin criado com sucesso!</p>
+                        <p class="success">Usuário lucas criado com sucesso!</p>
                         <p>Detalhes do novo usuário:</p>
                         <ul>
                             <li><strong>ID:</strong> ${newUser[0].id}</li>
@@ -199,17 +199,17 @@
                             <li><strong>Nome:</strong> ${newUser[0].display_name}</li>
                             <li><strong>Função:</strong> ${newUser[0].role}</li>
                         </ul>
-                        <p>A senha foi definida como 'admin123'.</p>
+                        <p>A senha foi definida como '12345'.</p>
                         <p class="success">Login corrigido com sucesso!</p>
                     `;
                 } else {
                     const adminUser = data[0];
-                    result.innerHTML += `<p class="success">Usuário admin encontrado (ID: ${adminUser.id}). Verificando senha...</p>`;
+                    result.innerHTML += `<p class="success">Usuário lucas encontrado (ID: ${adminUser.id}). Verificando senha...</p>`;
                     
                     // Passo 2: Verificar se a senha está correta
-                    result.innerHTML += '<p class="info">Passo 2: Verificando senha do admin...</p>';
+                    result.innerHTML += '<p class="info">Passo 2: Verificando senha do lucas...</p>';
                     
-                    const password = 'admin123';
+                    const password = '12345';
                     const isPasswordValid = await bcrypt.compare(password, adminUser.password_hash);
                     
                     if (isPasswordValid) {
@@ -225,10 +225,10 @@
                             <p class="success">Login corrigido com sucesso!</p>
                         `;
                     } else {
-                        result.innerHTML += '<p class="warning">A senha do usuário admin está incorreta. Atualizando...</p>';
+                        result.innerHTML += '<p class="warning">A senha do usuário lucas está incorreta. Atualizando...</p>';
                         
-                        // Passo 3: Atualizar a senha do admin
-                        result.innerHTML += '<p class="info">Passo 3: Atualizando senha do admin...</p>';
+                        // Passo 3: Atualizar a senha do lucas
+                        result.innerHTML += '<p class="info">Passo 3: Atualizando senha do lucas...</p>';
                         
                         // Gerar novo hash da senha
                         const hashedPassword = await bcrypt.hash(password, 10);
@@ -255,7 +255,7 @@
                         }
                         
                         result.innerHTML += `
-                            <p class="success">Senha do usuário admin atualizada com sucesso!</p>
+                            <p class="success">Senha do usuário lucas atualizada com sucesso!</p>
                             <p>Detalhes do usuário:</p>
                             <ul>
                                 <li><strong>ID:</strong> ${adminUser.id}</li>
@@ -263,7 +263,7 @@
                                 <li><strong>Nome:</strong> ${adminUser.display_name}</li>
                                 <li><strong>Função:</strong> admin</li>
                             </ul>
-                            <p>A senha foi definida como 'admin123'.</p>
+                            <p>A senha foi definida como '12345'.</p>
                             <p class="success">Login corrigido com sucesso!</p>
                         `;
                     }

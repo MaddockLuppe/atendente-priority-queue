@@ -2,15 +2,15 @@
 
 ## Problemas
 
-1. O sistema está apresentando problemas de login devido à falta do usuário administrador (admin) no banco de dados.
-2. Erro "bcrypt is not defined" ao tentar criar o usuário admin, indicando problemas com o carregamento da biblioteca bcrypt.js.
+1. O sistema está apresentando problemas de login devido à falta do usuário administrador no banco de dados.
+2. Erro "bcrypt is not defined" ao tentar criar o usuário administrador, indicando problemas com o carregamento da biblioteca bcrypt.js.
 
 ## Solução
 
 Foram criados os seguintes arquivos para corrigir os problemas:
 
-1. **create-admin-user.cjs** - Script Node.js para verificar e criar o usuário admin
-2. **create-admin-browser.html** - Página HTML para verificar e criar o usuário admin através do navegador
+1. **create-admin-user.cjs** - Script Node.js para verificar e criar o usuário administrador
+2. **create-admin-browser.html** - Página HTML para verificar e criar o usuário administrador através do navegador
 3. **abrir-pagina.ps1** - Script PowerShell para abrir a página HTML no navegador padrão
 4. **public/bcrypt.min.js** - Biblioteca bcrypt.js local para garantir o funcionamento mesmo sem acesso à internet
 
@@ -23,11 +23,11 @@ Foram criados os seguintes arquivos para corrigir os problemas:
    powershell -ExecutionPolicy Bypass -File .\abrir-pagina.ps1
    ```
 
-2. Na página aberta no navegador, clique no botão "Verificar/Criar Admin".
+2. Na página aberta no navegador, clique no botão "Verificar/Criar Usuário Lucas".
 
-3. A página irá verificar se o usuário admin existe e, caso não exista, irá criá-lo com as seguintes credenciais:
-   - Usuário: `admin`
-   - Senha: `admin123`
+3. A página irá verificar se o usuário lucas existe e, caso não exista, irá criá-lo como administrador com as seguintes credenciais:
+   - Usuário: `lucas`
+   - Senha: `12345`
 
 ### Opção 2: Usando Node.js (avançado)
 
@@ -45,9 +45,9 @@ Foram criados os seguintes arquivos para corrigir os problemas:
    node create-admin-user.cjs
    ```
 
-4. O script irá verificar se o usuário admin existe e, caso não exista, irá criá-lo com as seguintes credenciais:
-   - Usuário: `admin`
-   - Senha: `admin123`
+4. O script irá verificar se o usuário administrador existe e, caso não exista, irá criá-lo com as seguintes credenciais:
+   - Usuário: `lucas`
+   - Senha: `12345`
 
 ## Verificação
 
