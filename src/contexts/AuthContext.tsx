@@ -100,15 +100,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
+      console.log('Tentando login com:', username);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('id, username, display_name, role, password_hash')
         .eq('username', username)
         .single();
       
-      if (error || !data) return false;
+      console.log('Resultado da consulta:', data, error);
       
+      if (error || !data) {
+        console.log('Usuário não encontrado');
+        return false;
+      }
+      
+      console.log('Comparando senhas...');
       const isValid = await bcrypt.compare(password, data.password_hash);
+      console.log('Senha válida:', isValid);
       
       if (isValid) {
         const user: User = {
