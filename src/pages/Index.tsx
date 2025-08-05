@@ -118,9 +118,7 @@ const Index = () => {
               {/* Header Simplificado */}
               <div className="flex justify-between items-center mb-6">
                 <div className="inline-flex items-center gap-2">
-                  <div className="p-2 rounded-full bg-white/20 backdrop-blur-sm">
-                    <Monitor className="w-6 h-6 text-white" />
-                  </div>
+                  
                   <h1 className="text-2xl font-bold text-white">
                 </h1>
                 </div>
