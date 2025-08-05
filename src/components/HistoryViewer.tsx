@@ -74,7 +74,7 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
-              Histórico de Atendimentos - {new Date(selectedDate).toLocaleDateString('pt-BR')}
+              Histórico de Atendimentos - {selectedDate.split('-').reverse().join('/')}
             </DialogTitle>
           </DialogHeader>
 
