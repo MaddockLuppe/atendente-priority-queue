@@ -6,22 +6,8 @@ import { AttendantManager } from '@/components/AttendantManager';
 import { HistoryViewer } from '@/components/HistoryViewer';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Monitor, UserPlus, Clock, Users, UserCog, LogOut, Key } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -44,10 +30,17 @@ const Index = () => {
     updateAttendant,
     deleteAttendant,
     getHistoryByDate,
-    toggleAttendantActive,
+    toggleAttendantActive
   } = useTicketSystem();
-  const { toast } = useToast();
-  const { user, users, logout, changePassword } = useAuth();
+  const {
+    toast
+  } = useToast();
+  const {
+    user,
+    users,
+    logout,
+    changePassword
+  } = useAuth();
   const navigate = useNavigate();
   const [confirmingCompletion, setConfirmingCompletion] = useState<string | null>(null);
   const [showOnlyActive, setShowOnlyActive] = useState<boolean>(false);
@@ -79,11 +72,9 @@ const Index = () => {
       description: `${attendant?.name} chamou a próxima ficha.`
     });
   };
-
   const handleComplete = (attendantId: string) => {
     setConfirmingCompletion(attendantId);
   };
-
   const confirmComplete = () => {
     if (confirmingCompletion) {
       const attendant = attendants.find(a => a.id === confirmingCompletion);
@@ -95,22 +86,18 @@ const Index = () => {
       setConfirmingCompletion(null);
     }
   };
-
   const handleRemoveTicket = (attendantId: string, ticketId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
     const ticket = attendant?.queueTickets.find(t => t.id === ticketId) || attendant?.currentTicket;
-    
     removeTicket(attendantId, ticketId);
     toast({
       title: "Ficha removida!",
       description: `Ficha ${ticket?.number} foi removida.`
     });
   };
-
   const handleToggleActive = (attendantId: string) => {
     const attendant = attendants.find(a => a.id === attendantId);
     toggleAttendantActive(attendantId);
-    
     if (attendant) {
       toast({
         title: attendant.isActive ? "Atendente desativado" : "Atendente ativado",
@@ -121,8 +108,7 @@ const Index = () => {
   const getTotalQueue = () => {
     return attendants.reduce((total, a) => total + a.queueTickets.length, 0);
   };
-  return (
-    <div className="fixed inset-0 bg-gradient-main">
+  return <div className="fixed inset-0 bg-gradient-main">
       <Tabs defaultValue="atendimentos" className="h-full flex flex-col">
         {/* Conteúdo Principal */}
         <div className="flex-1 overflow-auto">
@@ -135,26 +121,15 @@ const Index = () => {
                   <div className="p-2 rounded-full bg-white/20 backdrop-blur-sm">
                     <Monitor className="w-6 h-6 text-white" />
                   </div>
-                  <h1 className="text-2xl font-bold text-white">Atendimentos</h1>
+                  <h1 className="text-2xl font-bold text-white">
+                </h1>
                 </div>
                 <div className="flex gap-2">
-                  {user?.role === 'admin' && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="bg-white/20 text-white hover:bg-white/30"
-                      onClick={() => setShowChangePasswordDialog(true)}
-                    >
+                  {user?.role === 'admin' && <Button variant="outline" size="sm" className="bg-white/20 text-white hover:bg-white/30" onClick={() => setShowChangePasswordDialog(true)}>
                       <Key className="w-4 h-4 mr-1" />
                       Alterar Senhas
-                    </Button>
-                  )}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="bg-white/20 text-white hover:bg-white/30"
-                    onClick={() => setConfirmingLogout(true)}
-                  >
+                    </Button>}
+                  <Button variant="outline" size="sm" className="bg-white/20 text-white hover:bg-white/30" onClick={() => setConfirmingLogout(true)}>
                     <LogOut className="w-4 h-4 mr-1" />
                     Sair
                   </Button>
@@ -191,22 +166,13 @@ const Index = () => {
 
               {/* Painel de Criação de Fichas */}
               <div className="mb-6">
-                <QueueManagement 
-                  queueState={queueState} 
-                  attendants={attendants} 
-                  onCreateTicket={handleCreateTicket}
-                  onCreateBulkTickets={createBulkTickets}
-                />
+                <QueueManagement queueState={queueState} attendants={attendants} onCreateTicket={handleCreateTicket} onCreateBulkTickets={createBulkTickets} />
               </div>
 
               {/* Filtro de Atendentes Ativos */}
               <div className="flex items-center justify-between mb-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-elevated">
                 <div className="flex items-center gap-2">
-                  <Switch 
-                    id="show-active" 
-                    checked={showOnlyActive} 
-                    onCheckedChange={setShowOnlyActive}
-                  />
+                  <Switch id="show-active" checked={showOnlyActive} onCheckedChange={setShowOnlyActive} />
                   <Label htmlFor="show-active" className="cursor-pointer">
                     Mostrar apenas atendentes ativos
                   </Label>
@@ -218,21 +184,7 @@ const Index = () => {
 
               {/* Grade de Atendentes */}
               <div className="grid gap-4">
-                {attendants
-                  .filter(attendant => !showOnlyActive || attendant.isActive)
-                  .map(attendant => (
-                    <AttendantCard 
-                      key={attendant.id} 
-                      attendant={attendant} 
-                      queueLength={attendant.queueTickets.length} 
-                      nextTickets={attendant.queueTickets} 
-                      isOverdue={isTicketOverdue(attendant.id)} 
-                      onCallNext={() => handleCallNext(attendant.id)} 
-                      onComplete={() => handleComplete(attendant.id)}
-                      onRemoveTicket={(ticketId) => handleRemoveTicket(attendant.id, ticketId)}
-                      canCallNext={attendant.queueTickets.length > 0}
-                    />
-                ))}
+                {attendants.filter(attendant => !showOnlyActive || attendant.isActive).map(attendant => <AttendantCard key={attendant.id} attendant={attendant} queueLength={attendant.queueTickets.length} nextTickets={attendant.queueTickets} isOverdue={isTicketOverdue(attendant.id)} onCallNext={() => handleCallNext(attendant.id)} onComplete={() => handleComplete(attendant.id)} onRemoveTicket={ticketId => handleRemoveTicket(attendant.id, ticketId)} canCallNext={attendant.queueTickets.length > 0} />)}
               </div>
             </div>
           </TabsContent>
@@ -250,13 +202,7 @@ const Index = () => {
               </div>
               
               <div className="bg-white/95 backdrop-blur-sm rounded-lg p-4">
-                <AttendantManager
-                  attendants={attendants}
-                  onAddAttendant={addAttendant}
-                  onUpdateAttendant={updateAttendant}
-                  onDeleteAttendant={deleteAttendant}
-                  onToggleActive={handleToggleActive}
-                />
+                <AttendantManager attendants={attendants} onAddAttendant={addAttendant} onUpdateAttendant={updateAttendant} onDeleteAttendant={deleteAttendant} onToggleActive={handleToggleActive} />
               </div>
             </div>
           </TabsContent>
@@ -284,31 +230,19 @@ const Index = () => {
 
         {/* Navegação Inferior Fixa */}
         <TabsList className="fixed bottom-0 left-0 right-0 h-16 w-full rounded-none bg-white/95 backdrop-blur-sm border-t border-border/50 grid-cols-4">
-          <TabsTrigger 
-            value="atendimentos" 
-            className="flex-col gap-1 h-full data-[state=active]:text-primary"
-          >
+          <TabsTrigger value="atendimentos" className="flex-col gap-1 h-full data-[state=active]:text-primary">
             <Monitor className="w-5 h-5" />
             <span className="text-xs">Atendimentos</span>
           </TabsTrigger>
-          <TabsTrigger 
-            value="attendants" 
-            className="flex-col gap-1 h-full data-[state=active]:text-primary"
-          >
+          <TabsTrigger value="attendants" className="flex-col gap-1 h-full data-[state=active]:text-primary">
             <UserPlus className="w-5 h-5" />
             <span className="text-xs">Atendentes</span>
           </TabsTrigger>
-          <TabsTrigger 
-            value="history" 
-            className="flex-col gap-1 h-full data-[state=active]:text-primary"
-          >
+          <TabsTrigger value="history" className="flex-col gap-1 h-full data-[state=active]:text-primary">
             <Clock className="w-5 h-5" />
             <span className="text-xs">Histórico</span>
           </TabsTrigger>
-          <Link 
-            to="/users" 
-            className="flex flex-col items-center justify-center gap-1 h-full text-muted-foreground hover:text-primary transition-colors"
-          >
+          <Link to="/users" className="flex flex-col items-center justify-center gap-1 h-full text-muted-foreground hover:text-primary transition-colors">
             <UserCog className="w-5 h-5" />
             <span className="text-xs">Usuários</span>
           </Link>
@@ -344,9 +278,9 @@ const Index = () => {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={() => {
-                logout();
-                navigate('/login');
-              }}>
+              logout();
+              navigate('/login');
+            }}>
                 Sair
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -367,54 +301,39 @@ const Index = () => {
                     <SelectValue placeholder="Escolha um usuário" />
                   </SelectTrigger>
                   <SelectContent>
-                    {user?.role === 'admin' && user.id !== '1' && (
-                      <SelectItem value={user.id}>{user.name} (Você)</SelectItem>
-                    )}
-                    {users
-                      .filter(u => u.id !== user?.id && u.role !== 'admin')
-                      .map(u => (
-                        <SelectItem key={u.id} value={u.id}>
+                    {user?.role === 'admin' && user.id !== '1' && <SelectItem value={user.id}>{user.name} (Você)</SelectItem>}
+                    {users.filter(u => u.id !== user?.id && u.role !== 'admin').map(u => <SelectItem key={u.id} value={u.id}>
                           {u.name} ({u.role === 'admin' ? 'Admin' : u.role === 'attendant' ? 'Atendente' : 'Visualizador'})
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="new-password">Nova Senha</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Digite a nova senha"
-                />
+                <Input id="new-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Digite a nova senha" />
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => {
+                setShowChangePasswordDialog(false);
+                setSelectedUser('');
+                setNewPassword('');
+              }}>
+                  Cancelar
+                </Button>
+                <Button onClick={() => {
+                if (selectedUser && newPassword) {
+                  // Já temos acesso ao changePassword do contexto de autenticação
+                  // através da desestruturação no início do componente
+                  changePassword(selectedUser, newPassword);
+                  toast({
+                    title: "Senha alterada",
+                    description: "A senha foi alterada com sucesso."
+                  });
                   setShowChangePasswordDialog(false);
                   setSelectedUser('');
                   setNewPassword('');
-                }}>
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (selectedUser && newPassword) {
-                      // Já temos acesso ao changePassword do contexto de autenticação
-                      // através da desestruturação no início do componente
-                      changePassword(selectedUser, newPassword);
-                      toast({
-                        title: "Senha alterada",
-                        description: "A senha foi alterada com sucesso."
-                      });
-                      setShowChangePasswordDialog(false);
-                      setSelectedUser('');
-                      setNewPassword('');
-                    }
-                  }}
-                  disabled={!selectedUser || !newPassword}
-                >
+                }
+              }} disabled={!selectedUser || !newPassword}>
                   Salvar
                 </Button>
               </div>
@@ -422,7 +341,6 @@ const Index = () => {
           </DialogContent>
         </Dialog>
       </Tabs>
-    </div>
-  );
+    </div>;
 };
 export default Index;
