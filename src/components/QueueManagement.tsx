@@ -78,7 +78,7 @@ export const QueueManagement = ({ queueState, attendants, onCreateTicket }: Queu
           </SelectTrigger>
           <SelectContent>
             {attendants
-              .filter(attendant => !attendant.isActive)
+              .filter(attendant => attendant.isActive)
               .map(attendant => (
                 <SelectItem key={attendant.id} value={attendant.id}>
                   {attendant.name}

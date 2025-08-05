@@ -300,6 +300,65 @@ export const useTicketSystem = () => {
     }
   }, [attendants]);
 
+  const createBulkTickets = useCallback(async (type: 'preferencial' | 'normal', attendantId: string, quantity: number): Promise<void> => {
+    try {
+      const attendant = attendants.find(a => a.id === attendantId);
+      if (!attendant) {
+        throw new Error('Atendente não encontrado');
+      }
+
+      const isPreferential = type === 'preferencial';
+      const maxNumber = isPreferential ? 2 : 10;
+      
+      if (quantity > maxNumber) {
+        throw new Error(`Quantidade máxima para ${type} é ${maxNumber}`);
+      }
+
+      // Encontra os números já usados
+      const attendantActiveTickets = [
+        ...(attendant.currentTicket && attendant.currentTicket.type === type ? [attendant.currentTicket] : []),
+        ...attendant.queueTickets.filter(t => t.type === type)
+      ];
+      
+      const usedNumbers = attendantActiveTickets.map(t => parseInt(t.number.substring(1)));
+      
+      // Verifica se há espaço para criar todas as fichas
+      const availableNumbers = [];
+      for (let i = 1; i <= maxNumber; i++) {
+        if (!usedNumbers.includes(i)) {
+          availableNumbers.push(i);
+        }
+      }
+
+      if (availableNumbers.length < quantity) {
+        throw new Error(`Só é possível criar ${availableNumbers.length} fichas ${type} para este atendente`);
+      }
+
+      // Cria as fichas em lote
+      const ticketsToInsert = [];
+      for (let i = 0; i < quantity; i++) {
+        const ticketNumber = isPreferential ? `P${availableNumbers[i]}` : `N${availableNumbers[i]}`;
+        ticketsToInsert.push({
+          ticket_number: ticketNumber,
+          ticket_type: type,
+          attendant_id: attendantId,
+          status: 'waiting'
+        });
+      }
+
+      const { error } = await supabase
+        .from('tickets')
+        .insert(ticketsToInsert);
+
+      if (error) throw error;
+
+      await loadAttendants();
+    } catch (error) {
+      console.error('Erro ao criar fichas em lote:', error);
+      throw error;
+    }
+  }, [attendants]);
+
   const callNextTicket = useCallback(async (attendantId: string) => {
     try {
       const attendant = attendants.find(a => a.id === attendantId);
@@ -443,6 +502,7 @@ export const useTicketSystem = () => {
     queueState,
     history,
     createTicket,
+    createBulkTickets,
     callNextTicket,
     completeTicket,
     removeTicket,
