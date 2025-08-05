@@ -5,7 +5,7 @@ export interface Ticket {
   createdAt: Date;
   calledAt?: Date;
   completedAt?: Date;
-  attendantId: string;
+  attendantId?: string;
   status: 'waiting' | 'in-service' | 'completed';
 }
 
@@ -18,8 +18,6 @@ export interface Attendant {
 }
 
 export interface QueueState {
-  preferentialQueue: Ticket[];
-  normalQueue: Ticket[];
   nextPreferentialNumber: number;
   nextNormalNumber: number;
 }

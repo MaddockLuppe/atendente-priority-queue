@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import bcrypt from 'bcryptjs';
 
 export type UserRole = 'admin' | 'attendant' | 'viewer';
 
@@ -14,12 +16,13 @@ interface AuthContextType {
   user: User | null;
   users: User[];
   isAuthenticated: boolean;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  addUser: (username: string, password: string, name: string, role: UserRole) => void;
-  updateUser: (id: string, data: Partial<User>) => void;
-  deleteUser: (id: string) => void;
-  changePassword: (userId: string, newPassword: string) => void;
+  addUser: (username: string, password: string, name: string, role: UserRole) => Promise<void>;
+  updateUser: (id: string, data: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+  changePassword: (userId: string, newPassword: string) => Promise<void>;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,56 +33,74 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>(() => {
-    const storedUsers = localStorage.getItem('users');
-    if (storedUsers) {
-      return JSON.parse(storedUsers);
-    }
-    // Default admin user
-    return [
-      {
-        id: '1',
-        username: 'admin',
-        name: 'Administrador',
-        role: 'admin' as UserRole,
-      },
-    ];
-  });
-  
-  // Store passwords separately for security
-  const [passwords, setPasswords] = useState<Record<string, string>>(() => {
-    const storedPasswords = localStorage.getItem('passwords');
-    if (storedPasswords) {
-      return JSON.parse(storedPasswords);
-    }
-    // Default admin password
-    return { '1': 'lumenix' };
-  });
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Save users to localStorage whenever they change
-    localStorage.setItem('users', JSON.stringify(users));
-    localStorage.setItem('passwords', JSON.stringify(passwords));
-  }, [users, passwords]);
+    loadUsers();
+    checkStoredSession();
+  }, []);
 
-  useEffect(() => {
-    // Check if user is already logged in
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, role');
+      
+      if (error) throw error;
+      
+      const mappedUsers = data.map(profile => ({
+        id: profile.id,
+        username: profile.username,
+        name: profile.display_name,
+        role: profile.role as UserRole
+      }));
+      
+      setUsers(mappedUsers);
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkStoredSession = () => {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
-  }, []);
+  };
 
-  const login = (username: string, password: string): boolean => {
-    const foundUser = users.find(u => u.username === username);
-    
-    if (foundUser && passwords[foundUser.id] === password) {
-      setUser(foundUser);
-      localStorage.setItem('currentUser', JSON.stringify(foundUser));
-      return true;
+  const login = async (username: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, role, password_hash')
+        .eq('username', username)
+        .single();
+      
+      if (error || !data) return false;
+      
+      const isValid = await bcrypt.compare(password, data.password_hash);
+      
+      if (isValid) {
+        const user: User = {
+          id: data.id,
+          username: data.username,
+          name: data.display_name,
+          role: data.role as UserRole
+        };
+        
+        setUser(user);
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Erro no login:', error);
+      return false;
     }
-    
-    return false;
   };
 
   const logout = () => {
@@ -87,46 +108,93 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('currentUser');
   };
 
-  const addUser = (username: string, password: string, name: string, role: UserRole) => {
-    const id = Date.now().toString();
-    const newUser = { id, username, name, role };
-    
-    setUsers(prev => [...prev, newUser]);
-    setPasswords(prev => ({ ...prev, [id]: password }));
-  };
-
-  const updateUser = (id: string, data: Partial<User>) => {
-    setUsers(prev => prev.map(user => 
-      user.id === id ? { ...user, ...data } : user
-    ));
-  };
-
-  const deleteUser = (id: string) => {
-    // Prevent deleting the last admin user
-    const adminUsers = users.filter(u => u.role === 'admin');
-    const targetUser = users.find(u => u.id === id);
-    
-    if (targetUser?.role === 'admin' && adminUsers.length <= 1) {
-      alert('Não é possível excluir o último usuário administrador');
-      return;
+  const addUser = async (username: string, password: string, name: string, role: UserRole): Promise<void> => {
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: crypto.randomUUID(),
+          username,
+          display_name: name,
+          role,
+          password_hash: hashedPassword
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Recarrega lista de usuários
+      await loadUsers();
+    } catch (error) {
+      console.error('Erro ao adicionar usuário:', error);
+      throw error;
     }
-    
-    setUsers(prev => prev.filter(user => user.id !== id));
-    
-    // Also remove password
-    setPasswords(prev => {
-      const newPasswords = { ...prev };
-      delete newPasswords[id];
-      return newPasswords;
-    });
   };
 
-  const changePassword = (userId: string, newPassword: string) => {
-    // Atualiza a senha do usuário
-    setPasswords(prev => ({
-      ...prev,
-      [userId]: newPassword
-    }));
+  const updateUser = async (id: string, data: Partial<User>): Promise<void> => {
+    try {
+      const updateData: any = {};
+      if (data.username) updateData.username = data.username;
+      if (data.name) updateData.display_name = data.name;
+      if (data.role) updateData.role = data.role;
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Recarrega lista de usuários
+      await loadUsers();
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      throw error;
+    }
+  };
+
+  const deleteUser = async (id: string): Promise<void> => {
+    try {
+      // Verificar se é o último admin
+      const adminCount = users.filter(u => u.role === 'admin').length;
+      const targetUser = users.find(u => u.id === id);
+      
+      if (targetUser?.role === 'admin' && adminCount <= 1) {
+        throw new Error('Não é possível excluir o último usuário administrador');
+      }
+      
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Recarrega lista de usuários
+      await loadUsers();
+    } catch (error) {
+      console.error('Erro ao excluir usuário:', error);
+      throw error;
+    }
+  };
+
+  const changePassword = async (userId: string, newPassword: string): Promise<void> => {
+    try {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ password_hash: hashedPassword })
+        .eq('id', userId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Erro ao alterar senha:', error);
+      throw error;
+    }
   };
 
   return (
@@ -141,6 +209,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         updateUser,
         deleteUser,
         changePassword,
+        loading,
       }}
     >
       {children}

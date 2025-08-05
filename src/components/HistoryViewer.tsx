@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { AttendmentHistory } from '@/types';
 
 interface HistoryViewerProps {
-  onGetHistoryByDate: (date: string) => AttendmentHistory[];
+  onGetHistoryByDate: (date: string) => Promise<AttendmentHistory[]>;
 }
 
 export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
@@ -23,8 +23,8 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const [history, setHistory] = useState<AttendmentHistory[]>([]);
 
-  const handleViewHistory = () => {
-    const dayHistory = onGetHistoryByDate(selectedDate);
+  const handleViewHistory = async () => {
+    const dayHistory = await onGetHistoryByDate(selectedDate);
     setHistory(dayHistory);
     setShowDialog(true);
   };

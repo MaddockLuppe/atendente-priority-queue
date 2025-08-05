@@ -54,9 +54,9 @@ const Index = () => {
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
-  const handleCreateTicket = (type: 'preferencial' | 'normal', attendantId: string) => {
+  const handleCreateTicket = async (type: 'preferencial' | 'normal', attendantId: string) => {
     try {
-      const ticket = createTicket(type, attendantId);
+      const ticket = await createTicket(type, attendantId);
       const attendant = attendants.find(a => a.id === attendantId);
       toast({
         title: "Ficha gerada com sucesso!",

@@ -87,7 +87,7 @@ const UserManagement = () => {
     }
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newUser.username || !newUser.password || !newUser.name) {
@@ -109,20 +109,28 @@ const UserManagement = () => {
       return;
     }
     
-    addUser(newUser.username, newUser.password, newUser.name, newUser.role);
-    
-    toast({
-      title: "Usuário criado com sucesso",
-      description: `${newUser.name} foi adicionado como ${newUser.role}`,
-    });
-    
-    // Limpar campos
-    setNewUser({
-      username: '',
-      password: '',
-      name: '',
-      role: 'attendant',
-    });
+    try {
+      await addUser(newUser.username, newUser.password, newUser.name, newUser.role);
+      
+      toast({
+        title: "Usuário criado com sucesso",
+        description: `${newUser.name} foi adicionado como ${newUser.role}`,
+      });
+      
+      // Limpar campos
+      setNewUser({
+        username: '',
+        password: '',
+        name: '',
+        role: 'attendant',
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao criar usuário",
+        description: "Falha ao criar usuário no banco de dados",
+        variant: "destructive",
+      });
+    }
   };
 
   const startEdit = (userId: string) => {

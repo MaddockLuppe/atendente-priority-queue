@@ -27,9 +27,24 @@ export const AttendantManager = ({
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        <Button variant="outline" size="sm">
+        <Input
+          placeholder="Nome do atendente"
+          value={newAttendantName}
+          onChange={(e) => setNewAttendantName(e.target.value)}
+          className="max-w-xs"
+        />
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => {
+            if (newAttendantName.trim()) {
+              onAddAttendant(newAttendantName.trim());
+              setNewAttendantName('');
+            }
+          }}
+        >
           <Plus className="w-4 h-4 mr-1" />
-          Novo Atendente
+          Adicionar
         </Button>
       </div>
 

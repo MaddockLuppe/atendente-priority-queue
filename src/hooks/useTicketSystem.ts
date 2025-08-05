@@ -1,179 +1,406 @@
-import { useState, useCallback } from 'react';
-import { Ticket, Attendant, QueueState, AttendmentHistory } from '@/types';
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-const INITIAL_ATTENDANT_NAMES = [
-  "pai", "mae", "moane", "elizabeth", "jeovane", 
-  "felipe", "luiz walter", "lara", "levi", "talles", "wellingtom"
-];
+export interface Attendant {
+  id: string;
+  name: string;
+  isActive: boolean;
+  currentTicket?: Ticket;
+  queueTickets: Ticket[];
+}
+
+export interface Ticket {
+  id: string;
+  number: string;
+  type: 'preferencial' | 'normal';
+  createdAt: Date;
+  calledAt?: Date;
+  completedAt?: Date;
+  attendantId?: string;
+  status: 'waiting' | 'in-service' | 'completed';
+}
+
+export interface QueueState {
+  nextPreferentialNumber: number;
+  nextNormalNumber: number;
+}
+
+export interface AttendmentHistory {
+  id: string;
+  attendantId: string;
+  attendantName: string;
+  ticketNumber: string;
+  ticketType: 'preferencial' | 'normal';
+  startTime: Date;
+  endTime: Date;
+  date: string;
+}
 
 export const useTicketSystem = () => {
-  // Inicializa atendentes
-  const [attendants, setAttendants] = useState<Attendant[]>(() =>
-    INITIAL_ATTENDANT_NAMES.map((name, index) => ({
-      id: `attendant-${index}`,
-      name,
-      isActive: false,
-      queueTickets: [],
-    }))
-  );
-
+  const [attendants, setAttendants] = useState<Attendant[]>([]);
   const [queueState, setQueueState] = useState<QueueState>({
-    preferentialQueue: [],
-    normalQueue: [],
     nextPreferentialNumber: 1,
     nextNormalNumber: 1,
   });
-
-  const [timers, setTimers] = useState<Record<string, number>>({});
   const [history, setHistory] = useState<AttendmentHistory[]>([]);
+  const [timers, setTimers] = useState<Record<string, { timer: number; warning: number }>>({});
+  const { toast } = useToast();
 
-  const generateTicketId = useCallback((type: 'preferencial' | 'normal', number: number): string => {
-    return type === 'preferencial' ? `P${number}` : `N${number}`;
+  // Carrega dados iniciais
+  useEffect(() => {
+    loadAttendants();
+    loadQueueState();
+    loadHistory();
   }, []);
 
-  const addAttendant = useCallback((name: string) => {
-    const newId = `attendant-${Date.now()}`;
-    setAttendants(prev => [...prev, {
-      id: newId,
-      name,
-      isActive: false,
-      queueTickets: [],
-    }]);
-  }, []);
+  // Verifica avisos de tempo a cada minuto
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkTimeWarnings();
+    }, 60000); // Verifica a cada minuto
 
-  const updateAttendant = useCallback((id: string, name: string) => {
-    setAttendants(prev => prev.map(attendant => 
-      attendant.id === id ? { ...attendant, name } : attendant
-    ));
-  }, []);
-
-  const deleteAttendant = useCallback((id: string) => {
-    setAttendants(prev => prev.filter(attendant => attendant.id !== id));
-  }, []);
-
-  const createTicket = useCallback((type: 'preferencial' | 'normal', attendantId: string): Ticket => {
-    const attendant = attendants.find(a => a.id === attendantId);
-    if (!attendant) {
-      throw new Error('Atendente não encontrado');
-    }
-
-    const isPreferential = type === 'preferencial';
-    const maxNumber = isPreferential ? 2 : 10;
-    
-    // Encontra o próximo número disponível apenas para este atendente
-    const attendantActiveTickets = [
-      ...(attendant.currentTicket && attendant.currentTicket.type === type ? [attendant.currentTicket] : []),
-      ...attendant.queueTickets.filter(t => t.type === type)
-    ];
-    
-    const usedNumbers = attendantActiveTickets.map(t => parseInt(t.number.substring(1)));
-    let nextNumber = 1;
-    for (let i = 1; i <= maxNumber; i++) {
-      if (!usedNumbers.includes(i)) {
-        nextNumber = i;
-        break;
-      }
-    }
-
-    const ticket: Ticket = {
-      id: generateTicketId(type, nextNumber),
-      number: generateTicketId(type, nextNumber),
-      type,
-      createdAt: new Date(),
-      attendantId,
-      status: 'waiting',
-    };
-
-    // Adiciona ficha à fila do atendente
-    setAttendants(prev => prev.map(a => 
-      a.id === attendantId 
-        ? { ...a, queueTickets: [...a.queueTickets, ticket] }
-        : a
-    ));
-
-    return ticket;
-  }, [attendants, generateTicketId]);
-
-  const callNextTicket = useCallback((attendantId: string) => {
-    const attendant = attendants.find(a => a.id === attendantId);
-    if (!attendant || attendant.currentTicket || attendant.queueTickets.length === 0) return;
-
-    // Prioriza fichas preferenciais
-    const nextTicket = attendant.queueTickets.find(t => t.type === 'preferencial') || 
-                      attendant.queueTickets[0];
-
-    if (!nextTicket) return;
-
-    const updatedTicket = {
-      ...nextTicket,
-      calledAt: new Date(),
-      status: 'in-service' as const,
-    };
-
-    // Inicia timer de 15 minutos
-    const timerId = window.setTimeout(() => {
-      // Timer apenas para referência, o alerta é verificado pelo isTicketOverdue
-    }, 15 * 60 * 1000);
-
-    setTimers(prevTimers => ({
-      ...prevTimers,
-      [attendantId]: timerId
-    }));
-
-    setAttendants(prev => prev.map(a => 
-      a.id === attendantId 
-        ? { 
-            ...a, 
-            currentTicket: updatedTicket,
-            queueTickets: a.queueTickets.filter(t => t.id !== nextTicket.id),
-            isActive: true 
-          }
-        : a
-    ));
+    return () => clearInterval(interval);
   }, [attendants]);
 
-  const completeTicket = useCallback((attendantId: string) => {
-    const attendant = attendants.find(a => a.id === attendantId);
-    if (!attendant?.currentTicket) return;
+  const loadAttendants = async () => {
+    try {
+      const { data: attendantsData, error: attendantsError } = await supabase
+        .from('attendants')
+        .select('*')
+        .order('name');
 
-    const completedTicket = {
-      ...attendant.currentTicket,
-      completedAt: new Date(),
-      status: 'completed' as const,
-    };
+      if (attendantsError) throw attendantsError;
 
-    // Adiciona ao histórico
-    const historyEntry: AttendmentHistory = {
-      id: `history-${Date.now()}`,
-      attendantId,
-      attendantName: attendant.name,
-      ticketNumber: completedTicket.number,
-      ticketType: completedTicket.type,
-      startTime: completedTicket.calledAt!, // Mantém o horário de início do atendimento
-      endTime: completedTicket.completedAt!,
-      date: new Date().toISOString().split('T')[0],
-    };
+      const { data: ticketsData, error: ticketsError } = await supabase
+        .from('tickets')
+        .select('*')
+        .in('status', ['waiting', 'in-service']);
 
-    setHistory(prev => [...prev, historyEntry]);
+      if (ticketsError) throw ticketsError;
 
-    // Limpa timer
-    if (timers[attendantId]) {
-      clearTimeout(timers[attendantId]);
-      setTimers(prev => {
-        const { [attendantId]: _, ...rest } = prev;
-        return rest;
+      const mappedAttendants: Attendant[] = attendantsData.map(attendant => {
+        const attendantTickets = ticketsData.filter(t => t.attendant_id === attendant.id);
+        const currentTicket = attendantTickets.find(t => t.status === 'in-service');
+        const queueTickets = attendantTickets.filter(t => t.status === 'waiting');
+
+        return {
+          id: attendant.id,
+          name: attendant.name,
+          isActive: attendant.is_active,
+          currentTicket: currentTicket ? mapTicketFromDB(currentTicket) : undefined,
+          queueTickets: queueTickets.map(mapTicketFromDB),
+        };
       });
-    }
 
-    setAttendants(prev => prev.map(a => 
-      a.id === attendantId 
-        ? { 
-            ...a, 
-            currentTicket: undefined,
-            isActive: a.queueTickets.length > 0 
-          }
-        : a
-    ));
+      setAttendants(mappedAttendants);
+    } catch (error) {
+      console.error('Erro ao carregar atendentes:', error);
+    }
+  };
+
+  const loadQueueState = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('queue_state')
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      setQueueState({
+        nextPreferentialNumber: data.next_preferential_number,
+        nextNormalNumber: data.next_normal_number,
+      });
+    } catch (error) {
+      console.error('Erro ao carregar estado da fila:', error);
+    }
+  };
+
+  const loadHistory = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('attendance_history')
+        .select('*')
+        .eq('service_date', today)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedHistory: AttendmentHistory[] = data.map(item => ({
+        id: item.id,
+        attendantId: item.attendant_id,
+        attendantName: item.attendant_name,
+        ticketNumber: item.ticket_number,
+        ticketType: item.ticket_type as 'preferencial' | 'normal',
+        startTime: new Date(item.start_time),
+        endTime: new Date(item.end_time),
+        date: item.service_date,
+      }));
+
+      setHistory(mappedHistory);
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+    }
+  };
+
+  const mapTicketFromDB = (ticket: any): Ticket => ({
+    id: ticket.id,
+    number: ticket.ticket_number,
+    type: ticket.ticket_type,
+    createdAt: new Date(ticket.created_at),
+    calledAt: ticket.called_at ? new Date(ticket.called_at) : undefined,
+    completedAt: ticket.completed_at ? new Date(ticket.completed_at) : undefined,
+    attendantId: ticket.attendant_id,
+    status: ticket.status,
+  });
+
+  const checkTimeWarnings = () => {
+    attendants.forEach(attendant => {
+      if (attendant.currentTicket?.calledAt) {
+        const now = Date.now();
+        const calledTime = attendant.currentTicket.calledAt.getTime();
+        const elapsedMinutes = Math.floor((now - calledTime) / (1000 * 60));
+
+        // Aviso aos 13 minutos (2 minutos antes dos 15)
+        if (elapsedMinutes === 13) {
+          toast({
+            title: "⚠️ Aviso de Tempo",
+            description: `${attendant.name} - Ticket ${attendant.currentTicket.number}: restam 2 minutos!`,
+            variant: "destructive",
+          });
+        }
+
+        // Aviso crítico aos 15 minutos
+        if (elapsedMinutes >= 15) {
+          toast({
+            title: "🚨 Tempo Esgotado",
+            description: `${attendant.name} - Ticket ${attendant.currentTicket.number}: tempo limite ultrapassado!`,
+            variant: "destructive",
+          });
+        }
+      }
+    });
+  };
+
+  const addAttendant = useCallback(async (name: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('attendants')
+        .insert({ name })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadAttendants();
+    } catch (error) {
+      console.error('Erro ao adicionar atendente:', error);
+      throw error;
+    }
+  }, []);
+
+  const updateAttendant = useCallback(async (id: string, name: string) => {
+    try {
+      const { error } = await supabase
+        .from('attendants')
+        .update({ name })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadAttendants();
+    } catch (error) {
+      console.error('Erro ao atualizar atendente:', error);
+      throw error;
+    }
+  }, []);
+
+  const deleteAttendant = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('attendants')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadAttendants();
+    } catch (error) {
+      console.error('Erro ao excluir atendente:', error);
+      throw error;
+    }
+  }, []);
+
+  const toggleAttendantActive = useCallback(async (attendantId: string) => {
+    try {
+      const attendant = attendants.find(a => a.id === attendantId);
+      if (!attendant) return;
+
+      const { error } = await supabase
+        .from('attendants')
+        .update({ is_active: !attendant.isActive })
+        .eq('id', attendantId);
+
+      if (error) throw error;
+
+      await loadAttendants();
+    } catch (error) {
+      console.error('Erro ao alterar status do atendente:', error);
+    }
+  }, [attendants]);
+
+  const createTicket = useCallback(async (type: 'preferencial' | 'normal', attendantId: string): Promise<Ticket> => {
+    try {
+      const attendant = attendants.find(a => a.id === attendantId);
+      if (!attendant) {
+        throw new Error('Atendente não encontrado');
+      }
+
+      const isPreferential = type === 'preferencial';
+      const maxNumber = isPreferential ? 2 : 10;
+      
+      // Encontra o próximo número disponível para este atendente
+      const attendantActiveTickets = [
+        ...(attendant.currentTicket && attendant.currentTicket.type === type ? [attendant.currentTicket] : []),
+        ...attendant.queueTickets.filter(t => t.type === type)
+      ];
+      
+      const usedNumbers = attendantActiveTickets.map(t => parseInt(t.number.substring(1)));
+      let nextNumber = 1;
+      for (let i = 1; i <= maxNumber; i++) {
+        if (!usedNumbers.includes(i)) {
+          nextNumber = i;
+          break;
+        }
+      }
+
+      const ticketNumber = isPreferential ? `P${nextNumber}` : `N${nextNumber}`;
+
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert({
+          ticket_number: ticketNumber,
+          ticket_type: type,
+          attendant_id: attendantId,
+          status: 'waiting'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadAttendants();
+      
+      return mapTicketFromDB(data);
+    } catch (error) {
+      console.error('Erro ao criar ticket:', error);
+      throw error;
+    }
+  }, [attendants]);
+
+  const callNextTicket = useCallback(async (attendantId: string) => {
+    try {
+      const attendant = attendants.find(a => a.id === attendantId);
+      if (!attendant || attendant.currentTicket || attendant.queueTickets.length === 0) return;
+
+      // Prioriza fichas preferenciais
+      const nextTicket = attendant.queueTickets.find(t => t.type === 'preferencial') || 
+                        attendant.queueTickets[0];
+
+      if (!nextTicket) return;
+
+      const { error } = await supabase
+        .from('tickets')
+        .update({
+          status: 'in-service',
+          called_at: new Date().toISOString()
+        })
+        .eq('id', nextTicket.id);
+
+      if (error) throw error;
+
+      await loadAttendants();
+    } catch (error) {
+      console.error('Erro ao chamar próximo ticket:', error);
+    }
+  }, [attendants]);
+
+  const completeTicket = useCallback(async (attendantId: string) => {
+    try {
+      const attendant = attendants.find(a => a.id === attendantId);
+      if (!attendant?.currentTicket) return;
+
+      const completedAt = new Date();
+
+      // Atualiza o ticket
+      const { error: ticketError } = await supabase
+        .from('tickets')
+        .update({
+          status: 'completed',
+          completed_at: completedAt.toISOString()
+        })
+        .eq('id', attendant.currentTicket.id);
+
+      if (ticketError) throw ticketError;
+
+      // Adiciona ao histórico
+      const { error: historyError } = await supabase
+        .from('attendance_history')
+        .insert({
+          attendant_id: attendantId,
+          attendant_name: attendant.name,
+          ticket_number: attendant.currentTicket.number,
+          ticket_type: attendant.currentTicket.type,
+          start_time: attendant.currentTicket.calledAt!.toISOString(),
+          end_time: completedAt.toISOString(),
+          service_date: new Date().toISOString().split('T')[0]
+        });
+
+      if (historyError) throw historyError;
+
+      // Limpa timers se existir
+      if (timers[attendantId]) {
+        clearTimeout(timers[attendantId].timer);
+        clearTimeout(timers[attendantId].warning);
+        setTimers(prev => {
+          const { [attendantId]: _, ...rest } = prev;
+          return rest;
+        });
+      }
+
+      await loadAttendants();
+      await loadHistory();
+    } catch (error) {
+      console.error('Erro ao completar ticket:', error);
+    }
+  }, [attendants, timers]);
+
+  const removeTicket = useCallback(async (attendantId: string, ticketId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tickets')
+        .delete()
+        .eq('id', ticketId);
+
+      if (error) throw error;
+
+      // Limpa timers se necessário
+      const attendant = attendants.find(a => a.id === attendantId);
+      if (attendant?.currentTicket?.id === ticketId && timers[attendantId]) {
+        clearTimeout(timers[attendantId].timer);
+        clearTimeout(timers[attendantId].warning);
+        setTimers(prev => {
+          const { [attendantId]: _, ...rest } = prev;
+          return rest;
+        });
+      }
+
+      await loadAttendants();
+    } catch (error) {
+      console.error('Erro ao remover ticket:', error);
+    }
   }, [attendants, timers]);
 
   const isTicketOverdue = useCallback((attendantId: string): boolean => {
@@ -185,53 +412,30 @@ export const useTicketSystem = () => {
     return (now - calledTime) > (15 * 60 * 1000);
   }, [attendants]);
 
-  const removeTicket = useCallback((attendantId: string, ticketId: string) => {
-    const attendant = attendants.find(a => a.id === attendantId);
-    if (!attendant) return;
+  const getHistoryByDate = useCallback(async (date: string): Promise<AttendmentHistory[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('attendance_history')
+        .select('*')
+        .eq('service_date', date)
+        .order('created_at', { ascending: false });
 
-    // Remove da fila de espera
-    if (attendant.queueTickets.some(t => t.id === ticketId)) {
-      setAttendants(prev => prev.map(a => 
-        a.id === attendantId 
-          ? { ...a, queueTickets: a.queueTickets.filter(t => t.id !== ticketId) }
-          : a
-      ));
-      return;
+      if (error) throw error;
+
+      return data.map(item => ({
+        id: item.id,
+        attendantId: item.attendant_id,
+        attendantName: item.attendant_name,
+        ticketNumber: item.ticket_number,
+        ticketType: item.ticket_type as 'preferencial' | 'normal',
+        startTime: new Date(item.start_time),
+        endTime: new Date(item.end_time),
+        date: item.service_date,
+      }));
+    } catch (error) {
+      console.error('Erro ao buscar histórico:', error);
+      return [];
     }
-
-    // Remove da ficha atual
-    if (attendant.currentTicket?.id === ticketId) {
-      // Limpa timer se existir
-      if (timers[attendantId]) {
-        clearTimeout(timers[attendantId]);
-        setTimers(prev => {
-          const { [attendantId]: _, ...rest } = prev;
-          return rest;
-        });
-      }
-
-      setAttendants(prev => prev.map(a => 
-        a.id === attendantId 
-          ? { 
-              ...a, 
-              currentTicket: undefined,
-              isActive: a.queueTickets.length > 0 
-            }
-          : a
-      ));
-    }
-  }, [attendants, timers]);
-
-  const getHistoryByDate = useCallback((date: string) => {
-    return history.filter(h => h.date === date);
-  }, [history]);
-
-  const toggleAttendantActive = useCallback((attendantId: string) => {
-    setAttendants(prev => prev.map(a => 
-      a.id === attendantId 
-        ? { ...a, isActive: !a.isActive } 
-        : a
-    ));
   }, []);
 
   return {
