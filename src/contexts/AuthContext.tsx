@@ -124,7 +124,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('Nome de usuário já existe');
+        }
+        throw error;
+      }
       
       // Recarrega lista de usuários
       await loadUsers();
