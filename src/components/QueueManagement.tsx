@@ -1,23 +1,46 @@
 import { useState } from 'react';
-import { Plus, Users, Clock } from 'lucide-react';
+import { Plus, Users, Clock, Ticket } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { QueueState, Attendant } from '@/types';
 
 interface QueueManagementProps {
   queueState: QueueState;
   attendants: Attendant[];
   onCreateTicket: (type: 'preferencial' | 'normal', attendantId: string) => void;
+  onCreateBulkTickets: (type: 'preferencial' | 'normal', attendantId: string, quantity: number) => Promise<void>;
 }
 
-export const QueueManagement = ({ queueState, attendants, onCreateTicket }: QueueManagementProps) => {
+export const QueueManagement = ({ queueState, attendants, onCreateTicket, onCreateBulkTickets }: QueueManagementProps) => {
   const [selectedAttendant, setSelectedAttendant] = useState<string>('');
-  const totalQueue = attendants.filter(a => a.isActive).length;
+  const [bulkQuantity, setBulkQuantity] = useState<number>(1);
+  const [bulkType, setBulkType] = useState<'preferencial' | 'normal'>('normal');
+  const [isCreatingBulk, setIsCreatingBulk] = useState(false);
   
+  
+  const totalQueue = attendants.filter(a => a.isActive).length;
   const canCreatePreferential = queueState.nextPreferentialNumber <= 2;
   const canCreateNormal = queueState.nextNormalNumber <= 10;
+
+  const handleBulkCreate = async () => {
+    if (!selectedAttendant || bulkQuantity < 1) return;
+    
+    setIsCreatingBulk(true);
+    try {
+      await onCreateBulkTickets(bulkType, selectedAttendant, bulkQuantity);
+      setBulkQuantity(1);
+      setSelectedAttendant('');
+    } catch (error) {
+      console.error('Erro ao criar fichas em lote:', error);
+    } finally {
+      setIsCreatingBulk(false);
+    }
+  };
 
   return (
     <Card className="p-6 shadow-elevated bg-gradient-card border-0">
@@ -70,7 +93,7 @@ export const QueueManagement = ({ queueState, attendants, onCreateTicket }: Queu
       </div>
 
       {/* Seleção do Atendente */}
-      <div className="mb-4">
+      <div className="mb-6">
         <label className="block text-sm font-medium mb-2">Selecionar Atendente</label>
         <Select value={selectedAttendant} onValueChange={setSelectedAttendant}>
           <SelectTrigger>
@@ -88,43 +111,96 @@ export const QueueManagement = ({ queueState, attendants, onCreateTicket }: Queu
         </Select>
       </div>
 
-      {/* Botões de Criação */}
-      <div className="space-y-3">
-        <Button 
-          onClick={() => {
-            if (selectedAttendant) {
-              onCreateTicket('preferencial', selectedAttendant);
-              setSelectedAttendant('');
-            }
-          }}
-          disabled={!canCreatePreferential || !selectedAttendant}
-          variant="preferential"
-          size="lg"
-          className="w-full"
-        >
-          <Plus size={18} className="mr-2" />
-          Gerar Ficha Preferencial
-          {!canCreatePreferential && ' (Limite atingido)'}
-        </Button>
-        
-        <Button 
-          onClick={() => {
-            if (selectedAttendant) {
-              onCreateTicket('normal', selectedAttendant);
-              setSelectedAttendant('');
-            }
-          }}
-          disabled={!canCreateNormal || !selectedAttendant}
-          variant="normal"
-          size="lg"
-          className="w-full"
-        >
-          <Plus size={18} className="mr-2" />
-          Gerar Ficha Normal
-          {!canCreateNormal && ' (Limite atingido)'}
-        </Button>
-      </div>
+      {/* Abas para Criação Individual e em Lote */}
+      <Tabs defaultValue="single" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="single" className="flex items-center gap-2">
+            <Plus size={16} />
+            Individual
+          </TabsTrigger>
+          <TabsTrigger value="bulk" className="flex items-center gap-2">
+            <Ticket size={16} />
+            Em Lote
+          </TabsTrigger>
+        </TabsList>
 
+        {/* Criação Individual */}
+        <TabsContent value="single" className="space-y-3">
+          <Button 
+            onClick={() => {
+              if (selectedAttendant) {
+                onCreateTicket('preferencial', selectedAttendant);
+                setSelectedAttendant('');
+              }
+            }}
+            disabled={!canCreatePreferential || !selectedAttendant}
+            variant="preferential"
+            size="lg"
+            className="w-full"
+          >
+            <Plus size={18} className="mr-2" />
+            Gerar Ficha Preferencial
+            {!canCreatePreferential && ' (Limite atingido)'}
+          </Button>
+          
+          <Button 
+            onClick={() => {
+              if (selectedAttendant) {
+                onCreateTicket('normal', selectedAttendant);
+                setSelectedAttendant('');
+              }
+            }}
+            disabled={!canCreateNormal || !selectedAttendant}
+            variant="normal"
+            size="lg"
+            className="w-full"
+          >
+            <Plus size={18} className="mr-2" />
+            Gerar Ficha Normal
+            {!canCreateNormal && ' (Limite atingido)'}
+          </Button>
+        </TabsContent>
+
+        {/* Criação em Lote */}
+        <TabsContent value="bulk" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="bulk-type">Tipo</Label>
+              <Select value={bulkType} onValueChange={(value: 'preferencial' | 'normal') => setBulkType(value)}>
+                <SelectTrigger id="bulk-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Normal (max: 10)</SelectItem>
+                  <SelectItem value="preferencial">Preferencial (max: 2)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="bulk-quantity">Quantidade</Label>
+              <Input
+                id="bulk-quantity"
+                type="number"
+                min="1"
+                max={bulkType === 'preferencial' ? 2 : 10}
+                value={bulkQuantity}
+                onChange={(e) => setBulkQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              />
+            </div>
+          </div>
+
+          <Button
+            onClick={handleBulkCreate}
+            disabled={!selectedAttendant || isCreatingBulk}
+            className="w-full"
+            size="lg"
+          >
+            <Ticket className="w-4 h-4 mr-2" />
+            {isCreatingBulk ? 'Criando...' : `Criar ${bulkQuantity} Fichas ${bulkType === 'preferencial' ? 'Preferenciais' : 'Normais'}`}
+          </Button>
+        </TabsContent>
+      </Tabs>
     </Card>
   );
 };

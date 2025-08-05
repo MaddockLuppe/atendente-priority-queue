@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTicketSystem } from '@/hooks/useTicketSystem';
 import { AttendantCard } from '@/components/AttendantCard';
 import { QueueManagement } from '@/components/QueueManagement';
-import { BulkTicketCreator } from '@/components/BulkTicketCreator';
 import { AttendantManager } from '@/components/AttendantManager';
 import { HistoryViewer } from '@/components/HistoryViewer';
 import { useToast } from '@/hooks/use-toast';
@@ -191,15 +190,12 @@ const Index = () => {
               </div>
 
               {/* Painel de Criação de Fichas */}
-              <div className="mb-6 space-y-4">
+              <div className="mb-6">
                 <QueueManagement 
                   queueState={queueState} 
                   attendants={attendants} 
-                  onCreateTicket={handleCreateTicket} 
-                />
-                <BulkTicketCreator
-                  attendants={attendants}
-                  onCreateTickets={createBulkTickets}
+                  onCreateTicket={handleCreateTicket}
+                  onCreateBulkTickets={createBulkTickets}
                 />
               </div>
 
