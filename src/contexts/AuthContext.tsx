@@ -39,6 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     loadUsers();
     checkStoredSession();
+    initializeAdminUser();
   }, []);
 
   const loadUsers = async () => {
@@ -68,6 +69,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
+    }
+  };
+
+  const initializeAdminUser = async () => {
+    try {
+      // Gerar hash correto da senha
+      const hashedPassword = await bcrypt.hash('xangoeoxum@2025@', 10);
+      
+      // Inserir ou atualizar usuário admin
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: crypto.randomUUID(),
+          username: 'abassa',
+          display_name: 'Administrador',
+          role: 'admin',
+          password_hash: hashedPassword
+        }, {
+          onConflict: 'username'
+        });
+      
+      if (error && error.code !== '23505') {
+        console.error('Erro ao criar usuário admin:', error);
+      }
+    } catch (error) {
+      console.error('Erro ao inicializar usuário admin:', error);
     }
   };
 
