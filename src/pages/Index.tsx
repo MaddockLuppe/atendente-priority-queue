@@ -181,7 +181,7 @@ const Index = () => {
               </div>
 
               {/* Grade de Atendentes */}
-              <div className="grid gap-4">
+              <div className="grid gap-4 scroll-container">
                 {attendants.filter(attendant => !showOnlyActive || attendant.isActive).map(attendant => <AttendantCard key={attendant.id} attendant={attendant} queueLength={attendant.queueTickets.length} nextTickets={attendant.queueTickets} isOverdue={isTicketOverdue(attendant.id)} onCallNext={() => handleCallNext(attendant.id)} onComplete={() => handleComplete(attendant.id)} onRemoveTicket={ticketId => handleRemoveTicket(attendant.id, ticketId)} canCallNext={attendant.queueTickets.length > 0} />)}
               </div>
             </div>

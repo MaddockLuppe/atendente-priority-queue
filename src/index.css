@@ -121,5 +121,27 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Evitar layout shift durante scroll */
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Evitar movimento de elementos durante scroll */
+  .scroll-container {
+    position: relative;
+    will-change: auto;
+    transform: translateZ(0);
+  }
+  
+  .fixed-card {
+    contain: layout;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+  
+  /* Melhorar performance de scroll */
+  .overflow-auto {
+    overscroll-behavior: contain;
   }
 }

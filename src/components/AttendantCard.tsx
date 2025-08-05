@@ -24,7 +24,7 @@ export const AttendantCard = ({
   onRemoveTicket,
   canCallNext
 }: AttendantCardProps) => {
-  return <Card className="p-6 shadow-elevated bg-gradient-card border-0">
+  return <Card className="p-6 shadow-elevated bg-gradient-card border-0 fixed-card">
       {/* Header do Atendente */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -70,7 +70,7 @@ export const AttendantCard = ({
       {/* Próximas Fichas */}
       <div className="mb-4">
         <h4 className="font-medium mb-2">Fila de Espera ({attendant.queueTickets.length})</h4>
-        <div className="space-y-2 max-h-40 overflow-y-auto">
+        <div className="space-y-2 max-h-40 overflow-y-auto scroll-container">
           {attendant.queueTickets.length > 0 ? (
             attendant.queueTickets.slice(0, 3).map(ticket => (
               <TicketCard 
