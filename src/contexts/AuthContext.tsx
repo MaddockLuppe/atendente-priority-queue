@@ -74,24 +74,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const initializeAdminUser = async () => {
     try {
-      // Gerar hash correto da senha
-      const hashedPassword = await bcrypt.hash('xangoeoxum@2025@', 10);
-      
-      // Inserir ou atualizar usuário admin
-      const { error } = await supabase
+      // Verificar se o usuário admin já existe
+      const { data: existingUser } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: crypto.randomUUID(),
-          username: 'abassa',
-          display_name: 'Administrador',
-          role: 'admin',
-          password_hash: hashedPassword
-        }, {
-          onConflict: 'username'
-        });
-      
-      if (error && error.code !== '23505') {
-        console.error('Erro ao criar usuário admin:', error);
+        .select('id')
+        .eq('username', 'abassa')
+        .single();
+
+      // Se não existir, criar com hash fixo
+      if (!existingUser) {
+        // Hash fixo para 'xangoeoxum@2025@' - isso evita recriar o hash a cada inicialização
+        const fixedHash = '$2b$10$XvsQSEZPxnTWV2jlti0iXeSmoveKPxslBi4nez2cjZ9ljXSuPcPma';
+        
+        const { error } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: crypto.randomUUID(),
+            username: 'abassa',
+            display_name: 'Administrador',
+            role: 'admin',
+            password_hash: fixedHash
+          });
+        
+        if (error && error.code !== '23505') {
+          console.error('Erro ao criar usuário admin:', error);
+        }
       }
     } catch (error) {
       console.error('Erro ao inicializar usuário admin:', error);
