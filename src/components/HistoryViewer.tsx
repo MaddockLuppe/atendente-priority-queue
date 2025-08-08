@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AttendmentHistory } from '@/types';
+import * as XLSX from 'xlsx';
 
 interface HistoryViewerProps {
   onGetHistoryByDate: (date: string) => Promise<AttendmentHistory[]>;
@@ -52,6 +53,26 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
     }, {} as Record<string, AttendmentHistory[]>);
   };
 
+  const exportToExcel = () => {
+    if (history.length === 0) return;
+
+    const exportData = history.map(item => ({
+      'Data': selectedDate.split('-').reverse().join('/'),
+      'Atendente': item.attendantName,
+      'Número da Ficha': item.ticketNumber,
+      'Tipo': item.ticketType === 'preferencial' ? 'Preferencial' : 'Normal',
+      'Hora Início': formatTime(item.startTime),
+      'Hora Fim': formatTime(item.endTime),
+      'Duração (min)': formatDuration(item.startTime, item.endTime).replace(' min', '')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Histórico');
+    
+    XLSX.writeFile(wb, `historico_atendimentos_${selectedDate}.xlsx`);
+  };
+
   const groupedHistory = groupByAttendant(history);
 
   return (
@@ -67,6 +88,12 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
           <Calendar className="w-4 h-4 mr-1" />
           Ver Histórico
         </Button>
+        {history.length > 0 && (
+          <Button variant="outline" size="sm" onClick={exportToExcel}>
+            <Download className="w-4 h-4 mr-1" />
+            Exportar Excel
+          </Button>
+        )}
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -128,7 +155,11 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
             )}
           </div>
 
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-between pt-4">
+            <Button variant="outline" onClick={exportToExcel} disabled={history.length === 0}>
+              <Download className="w-4 h-4 mr-1" />
+              Exportar Excel
+            </Button>
             <Button variant="outline" onClick={() => setShowDialog(false)}>
               Fechar
             </Button>

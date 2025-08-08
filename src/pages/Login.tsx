@@ -6,12 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import ImageUpload from '@/components/ImageUpload';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   
   const { login, user } = useAuth();
   const navigate = useNavigate();
@@ -53,16 +51,7 @@ const Login = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="w-full space-y-6">
-            
-            {/* Upload de Imagem */}
-            <ImageUpload 
-              maxWidth={315}
-              maxHeight={200}
-              onImageSelect={setSelectedImage}
-            />
-            
-            <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username">Usuário</Label>
                 <Input
@@ -85,11 +74,10 @@ const Login = () => {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full">
-                Entrar
-              </Button>
-            </form>
-          </div>
+            <Button type="submit" className="w-full">
+              Entrar
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>

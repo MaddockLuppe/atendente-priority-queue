@@ -392,34 +392,10 @@ export const useTicketSystem = () => {
       if (!attendant?.currentTicket) return;
 
       const completedAt = new Date();
+      const calledAt = new Date(attendant.currentTicket.calledAt!);
+      const serviceDate = calledAt.toLocaleDateString('pt-BR').split('/').reverse().join('-');
 
-      // Atualiza o ticket
-      const { error: ticketError } = await supabase
-        .from('tickets')
-        .update({
-          status: 'completed',
-          completed_at: completedAt.toISOString()
-        })
-        .eq('id', attendant.currentTicket.id);
-
-      if (ticketError) throw ticketError;
-
-      // Adiciona ao histórico
-      const { error: historyError } = await supabase
-        .from('attendance_history')
-        .insert({
-          attendant_id: attendantId,
-          attendant_name: attendant.name,
-          ticket_number: attendant.currentTicket.number,
-          ticket_type: attendant.currentTicket.type,
-          start_time: attendant.currentTicket.calledAt!.toISOString(),
-          end_time: completedAt.toISOString(),
-          service_date: new Date().toISOString().split('T')[0]
-        });
-
-      if (historyError) throw historyError;
-
-      // Limpa timers se existir
+      // Limpa timers antes de fazer as operações
       if (timers[attendantId]) {
         clearTimeout(timers[attendantId].timer);
         clearTimeout(timers[attendantId].warning);
@@ -429,8 +405,34 @@ export const useTicketSystem = () => {
         });
       }
 
-      await loadAttendants();
-      await loadHistory();
+      // Executa as operações em paralelo para melhor performance
+      const [ticketResult, historyResult] = await Promise.all([
+        supabase
+          .from('tickets')
+          .update({
+            status: 'completed',
+            completed_at: completedAt.toISOString()
+          })
+          .eq('id', attendant.currentTicket.id),
+        
+        supabase
+          .from('attendance_history')
+          .insert({
+            attendant_id: attendantId,
+            attendant_name: attendant.name,
+            ticket_number: attendant.currentTicket.number,
+            ticket_type: attendant.currentTicket.type,
+            start_time: calledAt.toISOString(),
+            end_time: completedAt.toISOString(),
+            service_date: serviceDate
+          })
+      ]);
+
+      if (ticketResult.error) throw ticketResult.error;
+      if (historyResult.error) throw historyResult.error;
+
+      // Recarrega apenas os dados necessários
+      await Promise.all([loadAttendants(), loadHistory()]);
     } catch (error) {
       console.error('Erro ao completar ticket:', error);
     }
