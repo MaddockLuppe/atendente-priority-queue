@@ -61,8 +61,9 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
     const sortedAttendants = Object.keys(groupedData).sort();
 
     const exportData = [];
+    let currentRow = 1; // Começar da linha 2 (1 indexado, pois linha 1 são os headers)
     
-    sortedAttendants.forEach(attendantName => {
+    sortedAttendants.forEach((attendantName, attendantIndex) => {
       const attendmentsByAttendant = groupedData[attendantName]
         .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
@@ -76,10 +77,11 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
           'Hora Fim': formatTime(item.endTime),
           'Duração (min)': formatDuration(item.startTime, item.endTime).replace(' min', '')
         });
+        currentRow++;
       });
 
       // Adiciona uma linha vazia entre atendentes (exceto o último)
-      if (attendantName !== sortedAttendants[sortedAttendants.length - 1]) {
+      if (attendantIndex < sortedAttendants.length - 1) {
         exportData.push({
           'Data': '',
           'Atendente': '',
@@ -89,27 +91,88 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
           'Hora Fim': '',
           'Duração (min)': ''
         });
+        currentRow++;
       }
     });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     
-    // Define largura das colunas
+    // Define largura das colunas otimizadas
     const colWidths = [
-      { wch: 12 }, // Data
-      { wch: 20 }, // Atendente  
-      { wch: 15 }, // Número da Ficha
-      { wch: 12 }, // Tipo
-      { wch: 12 }, // Hora Início
-      { wch: 12 }, // Hora Fim
-      { wch: 15 }  // Duração
+      { wch: 14 }, // Data
+      { wch: 25 }, // Atendente  
+      { wch: 18 }, // Número da Ficha
+      { wch: 15 }, // Tipo
+      { wch: 14 }, // Hora Início
+      { wch: 14 }, // Hora Fim
+      { wch: 16 }  // Duração
     ];
     ws['!cols'] = colWidths;
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Histórico');
+    // Formatação das células
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     
-    XLSX.writeFile(wb, `historico_atendimentos_${selectedDate}.xlsx`);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellAddress]) continue;
+        
+        // Inicializa o estilo da célula
+        if (!ws[cellAddress].s) ws[cellAddress].s = {};
+        
+        // Header row (primeira linha) - vermelho suave
+        if (R === 0) {
+          ws[cellAddress].s = {
+            fill: { fgColor: { rgb: 'FFE6E6' } }, // Vermelho muito suave
+            font: { bold: true, color: { rgb: '8B0000' } }, // Texto vermelho escuro
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: {
+              top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+              bottom: { style: 'thin', color: { rgb: 'CCCCCC' } },
+              left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+              right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+            }
+          };
+        } 
+        // Linhas de dados - alternando branco e rosa muito claro
+        else {
+          const isEvenRow = R % 2 === 0;
+          const isEmpty = !exportData[R - 1] || Object.values(exportData[R - 1]).every(val => val === '');
+          
+          ws[cellAddress].s = {
+            fill: { 
+              fgColor: { 
+                rgb: isEmpty ? 'FFFFFF' : (isEvenRow ? 'FFFFFF' : 'FFF5F5') 
+              } 
+            }, // Branco ou rosa muito claro
+            font: { color: { rgb: isEmpty ? 'FFFFFF' : '333333' } },
+            alignment: { 
+              horizontal: C === 1 ? 'left' : 'center', // Nome do atendente à esquerda
+              vertical: 'center' 
+            },
+            border: isEmpty ? undefined : {
+              top: { style: 'thin', color: { rgb: 'E5E5E5' } },
+              bottom: { style: 'thin', color: { rgb: 'E5E5E5' } },
+              left: { style: 'thin', color: { rgb: 'E5E5E5' } },
+              right: { style: 'thin', color: { rgb: 'E5E5E5' } }
+            }
+          };
+        }
+      }
+    }
+
+    // Define altura das linhas
+    if (!ws['!rows']) ws['!rows'] = [];
+    for (let i = 0; i <= range.e.r; i++) {
+      ws['!rows'][i] = { hpt: i === 0 ? 25 : 20 }; // Header mais alto
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Histórico de Atendimentos');
+    
+    // Nome do arquivo mais descritivo
+    const formattedDate = selectedDate.split('-').reverse().join('-');
+    XLSX.writeFile(wb, `Historico_Atendimentos_${formattedDate}.xlsx`);
   };
 
   const groupedHistory = groupByAttendant(history);
