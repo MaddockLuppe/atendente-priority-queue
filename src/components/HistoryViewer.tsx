@@ -56,17 +56,56 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
   const exportToExcel = () => {
     if (history.length === 0) return;
 
-    const exportData = history.map(item => ({
-      'Data': selectedDate.split('-').reverse().join('/'),
-      'Atendente': item.attendantName,
-      'Número da Ficha': item.ticketNumber,
-      'Tipo': item.ticketType === 'preferencial' ? 'Preferencial' : 'Normal',
-      'Hora Início': formatTime(item.startTime),
-      'Hora Fim': formatTime(item.endTime),
-      'Duração (min)': formatDuration(item.startTime, item.endTime).replace(' min', '')
-    }));
+    // Agrupa por atendente e ordena alfabeticamente
+    const groupedData = groupByAttendant(history);
+    const sortedAttendants = Object.keys(groupedData).sort();
+
+    const exportData = [];
+    
+    sortedAttendants.forEach(attendantName => {
+      const attendmentsByAttendant = groupedData[attendantName]
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+      attendmentsByAttendant.forEach((item, index) => {
+        exportData.push({
+          'Data': selectedDate.split('-').reverse().join('/'),
+          'Atendente': index === 0 ? attendantName : '', // Só mostra o nome na primeira linha
+          'Número da Ficha': item.ticketNumber,
+          'Tipo': item.ticketType === 'preferencial' ? 'Preferencial' : 'Normal',
+          'Hora Início': formatTime(item.startTime),
+          'Hora Fim': formatTime(item.endTime),
+          'Duração (min)': formatDuration(item.startTime, item.endTime).replace(' min', '')
+        });
+      });
+
+      // Adiciona uma linha vazia entre atendentes (exceto o último)
+      if (attendantName !== sortedAttendants[sortedAttendants.length - 1]) {
+        exportData.push({
+          'Data': '',
+          'Atendente': '',
+          'Número da Ficha': '',
+          'Tipo': '',
+          'Hora Início': '',
+          'Hora Fim': '',
+          'Duração (min)': ''
+        });
+      }
+    });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Define largura das colunas
+    const colWidths = [
+      { wch: 12 }, // Data
+      { wch: 20 }, // Atendente  
+      { wch: 15 }, // Número da Ficha
+      { wch: 12 }, // Tipo
+      { wch: 12 }, // Hora Início
+      { wch: 12 }, // Hora Fim
+      { wch: 15 }  // Duração
+    ];
+    ws['!cols'] = colWidths;
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Histórico');
     
