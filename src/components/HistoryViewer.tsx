@@ -61,7 +61,6 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
     const sortedAttendants = Object.keys(groupedData).sort();
 
     const exportData = [];
-    let currentRow = 1; // Começar da linha 2 (1 indexado, pois linha 1 são os headers)
     
     sortedAttendants.forEach((attendantName, attendantIndex) => {
       const attendmentsByAttendant = groupedData[attendantName]
@@ -77,7 +76,6 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
           'Hora Fim': formatTime(item.endTime),
           'Duração (min)': formatDuration(item.startTime, item.endTime).replace(' min', '')
         });
-        currentRow++;
       });
 
       // Adiciona uma linha vazia entre atendentes (exceto o último)
@@ -91,7 +89,6 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
           'Hora Fim': '',
           'Duração (min)': ''
         });
-        currentRow++;
       }
     });
 
@@ -99,73 +96,120 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
     
     // Define largura das colunas otimizadas
     const colWidths = [
-      { wch: 14 }, // Data
-      { wch: 25 }, // Atendente  
-      { wch: 18 }, // Número da Ficha
-      { wch: 15 }, // Tipo
-      { wch: 14 }, // Hora Início
-      { wch: 14 }, // Hora Fim
-      { wch: 16 }  // Duração
+      { wch: 16 }, // Data
+      { wch: 28 }, // Atendente  
+      { wch: 20 }, // Número da Ficha
+      { wch: 16 }, // Tipo
+      { wch: 16 }, // Hora Início
+      { wch: 16 }, // Hora Fim
+      { wch: 18 }  // Duração
     ];
     ws['!cols'] = colWidths;
 
-    // Formatação das células
+    // Aplicar formatação profissional
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     
+    // Aplicar estilos a cada célula
     for (let R = range.s.r; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
         const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cellAddress]) continue;
         
-        // Inicializa o estilo da célula
-        if (!ws[cellAddress].s) ws[cellAddress].s = {};
+        if (!ws[cellAddress]) {
+          ws[cellAddress] = { t: 's', v: '' };
+        }
         
-        // Header row (primeira linha) - vermelho suave
+        if (!ws[cellAddress].s) {
+          ws[cellAddress].s = {};
+        }
+
+        // Cabeçalho - Estilo vermelho profissional
         if (R === 0) {
           ws[cellAddress].s = {
-            fill: { fgColor: { rgb: 'FFE6E6' } }, // Vermelho muito suave
-            font: { bold: true, color: { rgb: '8B0000' } }, // Texto vermelho escuro
-            alignment: { horizontal: 'center', vertical: 'center' },
-            border: {
-              top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-              bottom: { style: 'thin', color: { rgb: 'CCCCCC' } },
-              left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-              right: { style: 'thin', color: { rgb: 'CCCCCC' } }
-            }
-          };
-        } 
-        // Linhas de dados - alternando branco e rosa muito claro
-        else {
-          const isEvenRow = R % 2 === 0;
-          const isEmpty = !exportData[R - 1] || Object.values(exportData[R - 1]).every(val => val === '');
-          
-          ws[cellAddress].s = {
-            fill: { 
-              fgColor: { 
-                rgb: isEmpty ? 'FFFFFF' : (isEvenRow ? 'FFFFFF' : 'FFF5F5') 
-              } 
-            }, // Branco ou rosa muito claro
-            font: { color: { rgb: isEmpty ? 'FFFFFF' : '333333' } },
-            alignment: { 
-              horizontal: C === 1 ? 'left' : 'center', // Nome do atendente à esquerda
-              vertical: 'center' 
+            fill: {
+              patternType: 'solid',
+              fgColor: { rgb: 'D32F2F' } // Vermelho profissional
             },
-            border: isEmpty ? undefined : {
-              top: { style: 'thin', color: { rgb: 'E5E5E5' } },
-              bottom: { style: 'thin', color: { rgb: 'E5E5E5' } },
-              left: { style: 'thin', color: { rgb: 'E5E5E5' } },
-              right: { style: 'thin', color: { rgb: 'E5E5E5' } }
+            font: {
+              name: 'Calibri',
+              sz: 12,
+              bold: true,
+              color: { rgb: 'FFFFFF' } // Texto branco
+            },
+            alignment: {
+              horizontal: 'center',
+              vertical: 'center',
+              wrapText: true
+            },
+            border: {
+              top: { style: 'medium', color: { rgb: '1976D2' } },
+              bottom: { style: 'medium', color: { rgb: '1976D2' } },
+              left: { style: 'medium', color: { rgb: '1976D2' } },
+              right: { style: 'medium', color: { rgb: '1976D2' } }
             }
           };
+        } else {
+          // Verifica se é uma linha vazia (separador)
+          const dataRow = exportData[R - 1];
+          const isEmpty = !dataRow || Object.values(dataRow).every(val => val === '');
+          
+          if (isEmpty) {
+            // Linha separadora invisível
+            ws[cellAddress].s = {
+              fill: {
+                patternType: 'solid',
+                fgColor: { rgb: 'F5F5F5' }
+              },
+              font: {
+                name: 'Calibri',
+                sz: 10,
+                color: { rgb: 'F5F5F5' }
+              }
+            };
+          } else {
+            // Linhas de dados com alternância de cores
+            const isEvenDataRow = Math.floor((R - 1) / 2) % 2 === 0;
+            
+            ws[cellAddress].s = {
+              fill: {
+                patternType: 'solid',
+                fgColor: { rgb: isEvenDataRow ? 'FFFFFF' : 'FFEBEE' } // Branco e rosa suave
+              },
+              font: {
+                name: 'Calibri',
+                sz: 11,
+                color: { rgb: '2E2E2E' },
+                bold: C === 1 && dataRow && dataRow['Atendente'] !== '' // Nome do atendente em negrito
+              },
+              alignment: {
+                horizontal: C === 1 ? 'left' : 'center', // Nome à esquerda, resto centralizado
+                vertical: 'center'
+              },
+              border: {
+                top: { style: 'thin', color: { rgb: 'E0E0E0' } },
+                bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
+                left: { style: 'thin', color: { rgb: 'E0E0E0' } },
+                right: { style: 'thin', color: { rgb: 'E0E0E0' } }
+              }
+            };
+          }
         }
       }
     }
 
     // Define altura das linhas
-    if (!ws['!rows']) ws['!rows'] = [];
+    ws['!rows'] = [];
     for (let i = 0; i <= range.e.r; i++) {
-      ws['!rows'][i] = { hpt: i === 0 ? 25 : 20 }; // Header mais alto
+      if (i === 0) {
+        ws['!rows'][i] = { hpt: 30 }; // Cabeçalho mais alto
+      } else {
+        const dataRow = exportData[i - 1];
+        const isEmpty = !dataRow || Object.values(dataRow).every(val => val === '');
+        ws['!rows'][i] = { hpt: isEmpty ? 8 : 22 }; // Linha vazia menor
+      }
     }
+
+    // Congela a primeira linha (cabeçalho)
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Histórico de Atendimentos');
