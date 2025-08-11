@@ -9,61 +9,10 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import UserManagement from "./pages/UserManagement";
 import PrivateRoute from "@/components/PrivateRoute";
-import AdminSetup from "@/components/AdminSetup";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const [needsAdminSetup, setNeedsAdminSetup] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    checkAdminSetup();
-  }, []);
-
-  const checkAdminSetup = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'admin')
-        .limit(1);
-
-      if (error) throw error;
-      setNeedsAdminSetup(!data || data.length === 0);
-    } catch (error) {
-      setNeedsAdminSetup(true);
-    }
-  };
-
-  const handleAdminCreated = () => {
-    setNeedsAdminSetup(false);
-  };
-
-  // Show loading while checking
-  if (needsAdminSetup === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Carregando...</div>
-      </div>
-    );
-  }
-
-  // Show admin setup if needed
-  if (needsAdminSetup) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AdminSetup onAdminCreated={handleAdminCreated} />
-          <Toaster />
-          <Sonner />
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-  }
-
-  // Show normal app
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
