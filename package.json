@@ -13,6 +13,9 @@
     "setup-security": "node scripts/setup-security.js",
     "security-check": "npm audit && node scripts/setup-security.js",
     "create-admin": "node scripts/create-admin-user.js",
+    "test-passwords": "node scripts/test-password-hashes.js",
+    "fix-passwords": "node scripts/fix-password-hashes.js",
+    "test-db": "node scripts/test-database-connection.js",
     "postinstall": "node scripts/setup-security.js"
   },
   "dependencies": {
