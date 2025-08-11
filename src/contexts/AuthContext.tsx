@@ -39,7 +39,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     loadUsers();
     checkStoredSession();
-    initializeAdminUser();
   }, []);
 
   const loadUsers = async () => {
@@ -59,7 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       setUsers(mappedUsers);
     } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
+      // Secure error handling without exposing details
     } finally {
       setLoading(false);
     }
@@ -72,66 +71,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const initializeAdminUser = async () => {
-    try {
-      // Verificar se o usuário admin já existe
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', 'abassa')
-        .single();
-
-      // Se não existir, criar com hash fixo
-      if (!existingUser) {
-        // Hash fixo para 'xangoeoxum@2025@' - isso evita recriar o hash a cada inicialização
-        const fixedHash = '$2b$10$XvsQSEZPxnTWV2jlti0iXeSmoveKPxslBi4nez2cjZ9ljXSuPcPma';
-        
-        const { error } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: crypto.randomUUID(),
-            username: 'abassa',
-            display_name: 'Administrador',
-            role: 'admin',
-            password_hash: fixedHash
-          });
-        
-        if (error && error.code !== '23505') {
-          console.error('Erro ao criar usuário admin:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao inicializar usuário admin:', error);
-    }
-  };
+  // Admin user initialization removed for security
+  // Admins should be created through secure user management interface
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      console.log('Tentando login com:', username);
-      
-      const { data, error } = await supabase
+      // Get stored hash for comparison
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('id, username, display_name, role, password_hash')
         .eq('username', username)
         .single();
+        
+      if (!profileData) return false;
       
-      console.log('Resultado da consulta:', data, error);
-      
-      if (error || !data) {
-        console.log('Usuário não encontrado');
-        return false;
-      }
-      
-      console.log('Comparando senhas...');
-      const isValid = await bcrypt.compare(password, data.password_hash);
-      console.log('Senha válida:', isValid);
+      // Verify password
+      const isValid = await bcrypt.compare(password, profileData.password_hash);
       
       if (isValid) {
         const user: User = {
-          id: data.id,
-          username: data.username,
-          name: data.display_name,
-          role: data.role as UserRole
+          id: profileData.id,
+          username: profileData.username,
+          name: profileData.display_name,
+          role: profileData.role as UserRole
         };
         
         setUser(user);
@@ -141,7 +103,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return false;
     } catch (error) {
-      console.error('Erro no login:', error);
       return false;
     }
   };
@@ -177,7 +138,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Recarrega lista de usuários
       await loadUsers();
     } catch (error) {
-      console.error('Erro ao adicionar usuário:', error);
       throw error;
     }
   };
@@ -199,7 +159,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Recarrega lista de usuários
       await loadUsers();
     } catch (error) {
-      console.error('Erro ao atualizar usuário:', error);
       throw error;
     }
   };
@@ -224,7 +183,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Recarrega lista de usuários
       await loadUsers();
     } catch (error) {
-      console.error('Erro ao excluir usuário:', error);
       throw error;
     }
   };
@@ -240,7 +198,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (error) throw error;
     } catch (error) {
-      console.error('Erro ao alterar senha:', error);
       throw error;
     }
   };
