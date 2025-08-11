@@ -2,6 +2,9 @@ import React, { createContext, useState, useContext, useEffect, ReactNode } from
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import bcrypt from 'bcryptjs';
+import { loginSchema, createUserSchema, sanitizeString, loginRateLimiter } from '@/lib/validation';
+import { useSecureSession } from '@/hooks/useSecureSession';
+import { useToast } from '@/hooks/use-toast';
 
 export type UserRole = 'admin' | 'attendant' | 'viewer';
 
@@ -32,13 +35,19 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const {
+    user,
+    isSessionValid,
+    updateSession,
+    clearSession,
+    getCSRFToken
+  } = useSecureSession();
 
   useEffect(() => {
     loadUsers();
-    checkStoredSession();
   }, []);
 
   const loadUsers = async () => {
@@ -64,29 +73,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const checkStoredSession = () => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  };
-
-  // Admin user initialization removed for security
-  // Admins should be created through secure user management interface
-
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      // Get stored hash for comparison
-      const { data: profileData } = await supabase
+      // Sanitizar entradas
+      const sanitizedUsername = sanitizeString(username);
+      const sanitizedPassword = password; // Não sanitizar senha para preservar caracteres especiais
+
+      // Validar entrada
+      const validation = loginSchema.safeParse({
+        username: sanitizedUsername,
+        password: sanitizedPassword
+      });
+
+      if (!validation.success) {
+        toast({
+          title: "Dados inválidos",
+          description: validation.error.errors[0].message,
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Verificar rate limiting
+      const clientId = `${sanitizedUsername}_${window.navigator.userAgent.slice(0, 50)}`;
+      if (!loginRateLimiter.isAllowed(clientId)) {
+        const remainingTime = Math.ceil(loginRateLimiter.getRemainingTime(clientId) / 1000 / 60);
+        toast({
+          title: "Muitas tentativas",
+          description: `Tente novamente em ${remainingTime} minutos`,
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Buscar dados do usuário
+      const { data: profileData, error } = await supabase
         .from('profiles')
         .select('id, username, display_name, role, password_hash')
-        .eq('username', username)
+        .eq('username', sanitizedUsername)
         .single();
         
-      if (!profileData) return false;
+      if (error || !profileData) {
+        toast({
+          title: "Erro no login",
+          description: "Usuário ou senha incorretos",
+          variant: "destructive"
+        });
+        return false;
+      }
       
-      // Verify password
-      const isValid = await bcrypt.compare(password, profileData.password_hash);
+      // Verificar senha
+      const isValid = await bcrypt.compare(sanitizedPassword, profileData.password_hash);
       
       if (isValid) {
         const user: User = {
@@ -96,33 +133,82 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           role: profileData.role as UserRole
         };
         
-        setUser(user);
-        localStorage.setItem('currentUser', JSON.stringify(user));
+        // Usar sessão segura
+        updateSession(user);
+        
+        // Reset rate limiting em caso de sucesso
+        loginRateLimiter.reset(clientId);
+        
+        toast({
+          title: "Login realizado",
+          description: "Bem-vindo ao sistema!"
+        });
+        
         return true;
       }
       
+      toast({
+        title: "Erro no login",
+        description: "Usuário ou senha incorretos",
+        variant: "destructive"
+      });
       return false;
     } catch (error) {
+      console.error('Erro no login:', error);
+      toast({
+        title: "Erro no sistema",
+        description: "Tente novamente mais tarde",
+        variant: "destructive"
+      });
       return false;
     }
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('currentUser');
+    clearSession();
+    toast({
+      title: "Logout realizado",
+      description: "Até logo!"
+    });
   };
 
   const addUser = async (username: string, password: string, name: string, role: UserRole): Promise<void> => {
     try {
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Sanitizar entradas
+      const sanitizedData = {
+        username: sanitizeString(username),
+        password: password, // Não sanitizar senha
+        name: sanitizeString(name),
+        role
+      };
+
+      // Validar dados
+      const validation = createUserSchema.safeParse(sanitizedData);
+      if (!validation.success) {
+        throw new Error(validation.error.errors[0].message);
+      }
+
+      // Verificar se usuário já existe
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', sanitizedData.username)
+        .single();
+
+      if (existingUser) {
+        throw new Error('Nome de usuário já existe');
+      }
+
+      // Hash da senha com salt mais forte
+      const hashedPassword = await bcrypt.hash(sanitizedData.password, 12);
       
       const { data, error } = await supabase
         .from('profiles')
         .insert({
           user_id: crypto.randomUUID(),
-          username,
-          display_name: name,
-          role,
+          username: sanitizedData.username,
+          display_name: sanitizedData.name,
+          role: sanitizedData.role,
           password_hash: hashedPassword
         })
         .select()
@@ -132,12 +218,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (error.code === '23505') {
           throw new Error('Nome de usuário já existe');
         }
-        throw error;
+        throw new Error('Erro ao criar usuário no banco de dados');
       }
       
       // Recarrega lista de usuários
       await loadUsers();
+      
+      toast({
+        title: "Usuário criado",
+        description: `${sanitizedData.name} foi adicionado com sucesso`
+      });
     } catch (error) {
+      console.error('Erro ao criar usuário:', error);
       throw error;
     }
   };
@@ -207,7 +299,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       value={{
         user,
         users,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && isSessionValid,
         login,
         logout,
         addUser,

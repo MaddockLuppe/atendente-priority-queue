@@ -9,10 +9,18 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import UserManagement from "./pages/UserManagement";
 import PrivateRoute from "@/components/PrivateRoute";
+import { applySecurityHeaders } from "@/lib/security";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
 const App = () => {
+  useEffect(() => {
+    // Aplicar headers de segurança
+    const isDevelopment = import.meta.env.DEV;
+    applySecurityHeaders(isDevelopment);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

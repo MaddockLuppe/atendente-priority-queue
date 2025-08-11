@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, UserX, Edit, User, ArrowLeft } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { createUserSchema, updateUserSchema, sanitizeString, validatePasswordStrength } from '@/lib/validation';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -90,31 +92,44 @@ const UserManagement = () => {
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newUser.username || !newUser.password || !newUser.name) {
-      toast({
-        title: "Erro ao criar usuário",
-        description: "Preencha todos os campos",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Verificar se o nome de usuário já existe
-    if (users.some(u => u.username === newUser.username)) {
-      toast({
-        title: "Erro ao criar usuário",
-        description: "Nome de usuário já existe",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
-      await addUser(newUser.username, newUser.password, newUser.name, newUser.role);
+      // Sanitizar entradas
+      const sanitizedData = {
+        username: sanitizeString(newUser.username),
+        password: newUser.password, // Não sanitizar senha
+        name: sanitizeString(newUser.name),
+        role: newUser.role
+      };
+
+      // Validar com Zod
+      const validatedData = createUserSchema.parse(sanitizedData);
+
+      // Validar força da senha
+      const passwordValidation = validatePasswordStrength(validatedData.password);
+      if (!passwordValidation.isValid) {
+        toast({
+          title: "Senha inválida",
+          description: passwordValidation.feedback.join(', '),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Verificar se o nome de usuário já existe
+      if (users.some(u => u.username === validatedData.username)) {
+        toast({
+          title: "Erro ao criar usuário",
+          description: "Nome de usuário já existe",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      await addUser(validatedData.username, validatedData.password, validatedData.name, validatedData.role);
       
       toast({
         title: "Usuário criado com sucesso",
-        description: `${newUser.name} foi adicionado como ${newUser.role}`,
+        description: `${validatedData.name} foi adicionado como ${validatedData.role}`,
       });
       
       // Limpar campos
@@ -125,11 +140,20 @@ const UserManagement = () => {
         role: 'attendant',
       });
     } catch (error) {
-      toast({
-        title: "Erro ao criar usuário",
-        description: "Falha ao criar usuário no banco de dados",
-        variant: "destructive",
-      });
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(err => err.message).join(', ');
+        toast({
+          title: "Dados inválidos",
+          description: errorMessages,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Erro ao criar usuário",
+          description: "Falha ao criar usuário no banco de dados",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -146,51 +170,78 @@ const UserManagement = () => {
     }
   };
 
-  const handleUpdateUser = () => {
+  const handleUpdateUser = async () => {
     if (!editingUser) return;
 
-    // Verificar se o nome de usuário já existe (exceto para o próprio usuário)
-    const usernameExists = users.some(
-      u => u.username === editingUser.username && u.id !== editingUser.id
-    );
+    try {
+      // Sanitizar entradas
+      const sanitizedData = {
+        username: sanitizeString(editingUser.username),
+        name: sanitizeString(editingUser.name),
+        role: editingUser.role
+      };
 
-    if (usernameExists) {
-      toast({
-        title: "Erro ao atualizar usuário",
-        description: "Nome de usuário já existe",
-        variant: "destructive",
+      // Validar com Zod (schema de update)
+      const validatedData = updateUserSchema.parse(sanitizedData);
+
+      // Verificar se o nome de usuário já existe (exceto para o próprio usuário)
+      const usernameExists = users.some(
+        u => u.username === validatedData.username && u.id !== editingUser.id
+      );
+
+      if (usernameExists) {
+        toast({
+          title: "Erro ao atualizar usuário",
+          description: "Nome de usuário já existe",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Verificar se está tentando alterar o último administrador
+      const isLastAdmin = 
+        validatedData.role !== 'admin' && 
+        editingUser.id === currentUser?.id && 
+        users.filter(u => u.role === 'admin').length <= 1;
+
+      if (isLastAdmin) {
+        toast({
+          title: "Operação não permitida",
+          description: "Não é possível rebaixar o último administrador",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await updateUser(editingUser.id, {
+        username: validatedData.username,
+        name: validatedData.name,
+        role: validatedData.role,
       });
-      return;
-    }
 
-    // Verificar se está tentando alterar o último administrador
-    const isLastAdmin = 
-      editingUser.role !== 'admin' && 
-      editingUser.id === currentUser?.id && 
-      users.filter(u => u.role === 'admin').length <= 1;
-
-    if (isLastAdmin) {
       toast({
-        title: "Operação não permitida",
-        description: "Não é possível rebaixar o último administrador",
-        variant: "destructive",
+        title: "Usuário atualizado",
+        description: `${validatedData.name} foi atualizado com sucesso`,
       });
-      return;
+
+      setShowEditDialog(false);
+      setEditingUser(null);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(err => err.message).join(', ');
+        toast({
+          title: "Dados inválidos",
+          description: errorMessages,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: "Erro ao atualizar usuário",
+          variant: "destructive",
+        });
+      }
     }
-
-    updateUser(editingUser.id, {
-      username: editingUser.username,
-      name: editingUser.name,
-      role: editingUser.role,
-    });
-
-    toast({
-      title: "Usuário atualizado",
-      description: `${editingUser.name} foi atualizado com sucesso`,
-    });
-
-    setShowEditDialog(false);
-    setEditingUser(null);
   };
 
   const confirmDelete = () => {
