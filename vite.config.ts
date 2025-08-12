@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => ({
     strictPort: true,
     // Configurações de segurança para desenvolvimento
     headers: mode === 'development' ? {
-      'X-Frame-Options': 'DENY',
+      // Allow Lovable preview iframe in development
+      'Content-Security-Policy': "frame-ancestors 'self' https://*.lovable.app https://*.lovable.dev https://*.lovableproject.com",
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin'
     } : undefined

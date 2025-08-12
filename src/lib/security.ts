@@ -9,11 +9,10 @@ export const securityHeaders = {
     "img-src 'self' data: https:",
     "font-src 'self' data:",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self' https://*.lovable.app https://*.lovable.dev https://*.lovableproject.com",
     "base-uri 'self'",
     "form-action 'self'"
   ].join('; '),
-  'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
