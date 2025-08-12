@@ -191,6 +191,15 @@ export type Database = {
           role: string
         }[]
       }
+      authenticate_user_secure: {
+        Args: { p_username: string; p_password: string }
+        Returns: {
+          user_id: string
+          username: string
+          display_name: string
+          role: string
+        }[]
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string

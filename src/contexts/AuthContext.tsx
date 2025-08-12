@@ -76,32 +76,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      // Get stored hash for comparison
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, role, password_hash')
-        .eq('username', username)
-        .single();
-        
-      if (!profileData) return false;
-      
-      // Verify password
-      const isValid = await bcrypt.compare(password, profileData.password_hash);
-      
-      if (isValid) {
-        const user: User = {
-          id: profileData.id,
-          username: profileData.username,
-          name: profileData.display_name,
-          role: profileData.role as UserRole
-        };
-        
-        setUser(user);
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        return true;
+      // Validação segura via RPC no Supabase (verifica senha no servidor)
+      const { data, error } = await supabase.rpc('authenticate_user_secure', {
+        p_username: username,
+        p_password: password,
+      });
+
+      if (error) {
+        return false;
       }
-      
-      return false;
+
+      const profile = Array.isArray(data) ? data[0] : null;
+      if (!profile) return false;
+
+      const user: User = {
+        id: profile.user_id,
+        username: profile.username,
+        name: profile.display_name,
+        role: profile.role as UserRole,
+      };
+
+      setUser(user);
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      return true;
     } catch (error) {
       return false;
     }
