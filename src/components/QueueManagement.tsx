@@ -18,7 +18,7 @@ interface QueueManagementProps {
 
 export const QueueManagement = ({ queueState, attendants, onCreateTicket, onCreateBulkTickets }: QueueManagementProps) => {
   const [selectedAttendant, setSelectedAttendant] = useState<string>('');
-  const [bulkQuantity, setBulkQuantity] = useState<number>(1);
+  const [bulkQuantity, setBulkQuantity] = useState<string>('');
   const [bulkType, setBulkType] = useState<'preferencial' | 'normal'>('normal');
   const [isCreatingBulk, setIsCreatingBulk] = useState(false);
   
@@ -28,12 +28,13 @@ export const QueueManagement = ({ queueState, attendants, onCreateTicket, onCrea
   const canCreateNormal = queueState.nextNormalNumber <= 10;
 
   const handleBulkCreate = async () => {
-    if (!selectedAttendant || bulkQuantity < 1) return;
+    const quantity = parseInt(bulkQuantity);
+    if (!selectedAttendant || !quantity || quantity < 1) return;
     
     setIsCreatingBulk(true);
     try {
-      await onCreateBulkTickets(bulkType, selectedAttendant, bulkQuantity);
-      setBulkQuantity(1);
+      await onCreateBulkTickets(bulkType, selectedAttendant, quantity);
+      setBulkQuantity('');
       setSelectedAttendant('');
     } catch (error) {
       console.error('Erro ao criar fichas em lote:', error);
@@ -185,19 +186,20 @@ export const QueueManagement = ({ queueState, attendants, onCreateTicket, onCrea
                 min="1"
                 max={bulkType === 'preferencial' ? 2 : 10}
                 value={bulkQuantity}
-                onChange={(e) => setBulkQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                placeholder="Digite a quantidade"
+                onChange={(e) => setBulkQuantity(e.target.value)}
               />
             </div>
           </div>
 
           <Button
             onClick={handleBulkCreate}
-            disabled={!selectedAttendant || isCreatingBulk}
+            disabled={!selectedAttendant || isCreatingBulk || !bulkQuantity || parseInt(bulkQuantity) < 1}
             className="w-full"
             size="lg"
           >
             <Ticket className="w-4 h-4 mr-2" />
-            {isCreatingBulk ? 'Criando...' : `Criar ${bulkQuantity} Fichas ${bulkType === 'preferencial' ? 'Preferenciais' : 'Normais'}`}
+            {isCreatingBulk ? 'Criando...' : `Criar ${bulkQuantity || '0'} Fichas ${bulkType === 'preferencial' ? 'Preferenciais' : 'Normais'}`}
           </Button>
         </TabsContent>
       </Tabs>

@@ -125,11 +125,13 @@ const UserManagement = () => {
         role: 'attendant',
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Falha ao criar usuário no banco de dados";
       toast({
         title: "Erro ao criar usuário",
-        description: "Falha ao criar usuário no banco de dados",
+        description: errorMessage,
         variant: "destructive",
       });
+      console.error('Erro ao criar usuário:', error);
     }
   };
 
@@ -193,7 +195,7 @@ const UserManagement = () => {
     setEditingUser(null);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!userToDelete) return;
 
     // Verificar se está tentando excluir o último administrador
@@ -223,14 +225,24 @@ const UserManagement = () => {
       return;
     }
 
-    deleteUser(userToDelete);
-    
-    toast({
-      title: "Usuário removido",
-      description: `O usuário foi removido do sistema`,
-    });
-    
-    setUserToDelete(null);
+    try {
+      await deleteUser(userToDelete);
+      
+      toast({
+        title: "Usuário removido",
+        description: `O usuário foi removido do sistema`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Falha ao remover usuário";
+      toast({
+        title: "Erro ao remover usuário",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      console.error('Erro ao remover usuário:', error);
+    } finally {
+      setUserToDelete(null);
+    }
   };
 
   const getRoleBadge = (role: UserRole) => {

@@ -20,14 +20,50 @@ interface HistoryViewerProps {
 }
 
 export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // Inicializa com a data atual no formato brasileiro
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    return today.toLocaleDateString('pt-BR');
+  });
   const [showDialog, setShowDialog] = useState(false);
   const [history, setHistory] = useState<AttendmentHistory[]>([]);
 
   const handleViewHistory = async () => {
+    if (!isValidDate(selectedDate)) {
+      alert('Por favor, insira uma data válida no formato DD/MM/YYYY');
+      return;
+    }
     const dayHistory = await onGetHistoryByDate(selectedDate);
     setHistory(dayHistory);
     setShowDialog(true);
+  };
+
+  // Função para validar e formatar a data brasileira
+  const formatBrazilianDate = (value: string) => {
+    // Remove caracteres não numéricos
+    const numbers = value.replace(/\D/g, '');
+    
+    // Aplica a máscara DD/MM/YYYY
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+    } else {
+      return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+    }
+  };
+
+  // Valida se a data está no formato correto
+  const isValidDate = (dateStr: string) => {
+    const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    const match = dateStr.match(regex);
+    if (!match) return false;
+    
+    const [, day, month, year] = match;
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.getDate() == parseInt(day) && 
+           date.getMonth() == parseInt(month) - 1 && 
+           date.getFullYear() == parseInt(year);
   };
 
   const formatTime = (date: Date) => {
@@ -68,7 +104,7 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
 
       attendmentsByAttendant.forEach((item, index) => {
         exportData.push({
-          'Data': selectedDate.split('-').reverse().join('/'),
+          'Data': selectedDate,
           'Atendente': index === 0 ? attendantName : '', // Só mostra o nome na primeira linha
           'Número da Ficha': item.ticketNumber,
           'Tipo': item.ticketType === 'preferencial' ? 'Preferencial' : 'Normal',
@@ -215,7 +251,7 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
     XLSX.utils.book_append_sheet(wb, ws, 'Histórico de Atendimentos');
     
     // Nome do arquivo mais descritivo
-    const formattedDate = selectedDate.split('-').reverse().join('-');
+    const formattedDate = selectedDate.replace(/\//g, '-');
     XLSX.writeFile(wb, `Historico_Atendimentos_${formattedDate}.xlsx`);
   };
 
@@ -225,10 +261,15 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
     <>
       <div className="flex items-center gap-2">
         <Input
-          type="date"
+          type="text"
+          placeholder="DD/MM/YYYY"
           value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
+          onChange={(e) => {
+            const formatted = formatBrazilianDate(e.target.value);
+            setSelectedDate(formatted);
+          }}
           className="w-auto"
+          maxLength={10}
         />
         <Button variant="outline" size="sm" onClick={handleViewHistory}>
           <Calendar className="w-4 h-4 mr-1" />
@@ -247,7 +288,7 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
-              Histórico de Atendimentos - {selectedDate.split('-').reverse().join('/')}
+              Histórico de Atendimentos - {selectedDate}
             </DialogTitle>
           </DialogHeader>
 

@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import bcrypt from 'bcryptjs';
 
 export type UserRole = 'admin' | 'attendant' | 'viewer';
 
@@ -43,13 +42,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, display_name, role');
+      // Usar função RPC que bypassa RLS
+      const { data, error } = await supabase.rpc('get_all_users');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao carregar usuários:', error);
+        throw error;
+      }
       
-      const mappedUsers = data.map(profile => ({
+      // data já vem como array de objetos JSON
+      const mappedUsers = (data || []).map((profile: any) => ({
         id: profile.id,
         username: profile.username,
         name: profile.display_name,
@@ -58,6 +60,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       setUsers(mappedUsers);
     } catch (error) {
+      console.error('Erro na função loadUsers:', error);
       // Secure error handling without exposing details
     } finally {
       setLoading(false);
@@ -111,30 +114,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const addUser = async (username: string, password: string, name: string, role: UserRole): Promise<void> => {
     try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: crypto.randomUUID(),
-          username,
-          display_name: name,
-          role,
-          password_hash: hashedPassword
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        if (error.code === '23505') {
-          throw new Error('Nome de usuário já existe');
-        }
-        throw error;
+      // Verificar se o usuário atual é admin
+      if (user?.role !== 'admin') {
+        throw new Error('Apenas administradores podem criar usuários');
       }
       
+      // Usar função RPC simplificada para criar usuário
+      const { data, error } = await supabase.rpc('admin_create_user', {
+        p_username: username,
+        p_password: password,
+        p_display_name: name,
+        p_role: role
+      });
+      
+      if (error) {
+        console.error('Erro ao criar usuário:', error);
+        throw new Error('Erro ao criar usuário: ' + error.message);
+      }
+      
+      // Verificar se a resposta indica sucesso
+      if (data && !data.success) {
+        throw new Error(data.error || 'Erro desconhecido ao criar usuário');
+      }
+      
+      console.log('Usuário criado com sucesso:', data);
       // Recarrega lista de usuários
       await loadUsers();
     } catch (error) {
+      console.error('Erro na função addUser:', error);
       throw error;
     }
   };
@@ -162,24 +169,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const deleteUser = async (id: string): Promise<void> => {
     try {
-      // Verificar se é o último admin
-      const adminCount = users.filter(u => u.role === 'admin').length;
-      const targetUser = users.find(u => u.id === id);
-      
-      if (targetUser?.role === 'admin' && adminCount <= 1) {
-        throw new Error('Não é possível excluir o último usuário administrador');
+      // Verificar se o usuário atual é admin
+      if (user?.role !== 'admin') {
+        throw new Error('Apenas administradores podem deletar usuários');
       }
       
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', id);
+      // Usar função RPC que bypassa RLS
+      const { data, error } = await supabase.rpc('admin_delete_user', {
+        p_user_id: id
+      });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao deletar usuário:', error);
+        throw new Error('Erro ao deletar usuário: ' + error.message);
+      }
       
+      // Verificar se a resposta indica sucesso
+      if (data && !data.success) {
+        throw new Error(data.error || 'Erro desconhecido ao deletar usuário');
+      }
+      
+      console.log('Usuário deletado com sucesso:', data);
       // Recarrega lista de usuários
       await loadUsers();
     } catch (error) {
+      console.error('Erro na função deleteUser:', error);
       throw error;
     }
   };

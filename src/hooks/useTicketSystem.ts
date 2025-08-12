@@ -119,7 +119,7 @@ export const useTicketSystem = () => {
 
   const loadHistory = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('pt-BR');
       const { data, error } = await supabase
         .from('attendance_history')
         .select('*')
@@ -393,7 +393,7 @@ export const useTicketSystem = () => {
 
       const completedAt = new Date();
       const calledAt = new Date(attendant.currentTicket.calledAt!);
-      const serviceDate = calledAt.toLocaleDateString('pt-BR').split('/').reverse().join('-');
+      const serviceDate = completedAt.toLocaleDateString('pt-BR');
 
       // Limpa timers antes de fazer as operações
       if (timers[attendantId]) {
@@ -475,6 +475,7 @@ export const useTicketSystem = () => {
 
   const getHistoryByDate = useCallback(async (date: string): Promise<AttendmentHistory[]> => {
     try {
+      // A data já vem no formato brasileiro (DD-MM-YYYY) do HistoryViewer
       const { data, error } = await supabase
         .from('attendance_history')
         .select('*')
