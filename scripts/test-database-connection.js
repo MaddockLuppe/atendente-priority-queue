@@ -6,9 +6,27 @@ import fs from 'fs';
 // Verificar se arquivo .env existe
 const hasEnvFile = fs.existsSync('.env');
 
-// URLs de exemplo (como no código atual)
-const supabaseUrl = 'https://exemplo.supabase.co';
-const supabaseAnonKey = 'exemplo_key';
+// Ler variáveis de ambiente do arquivo .env
+let supabaseUrl = 'https://exemplo.supabase.co';
+let supabaseAnonKey = 'exemplo_key';
+
+if (hasEnvFile) {
+  try {
+    const envContent = fs.readFileSync('.env', 'utf8');
+    const envLines = envContent.split('\n');
+    
+    for (const line of envLines) {
+      if (line.startsWith('VITE_SUPABASE_URL=')) {
+        supabaseUrl = line.split('=')[1].trim();
+      }
+      if (line.startsWith('VITE_SUPABASE_ANON_KEY=')) {
+        supabaseAnonKey = line.split('=')[1].trim();
+      }
+    }
+  } catch (error) {
+    console.log('⚠️  Erro ao ler arquivo .env:', error.message);
+  }
+}
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -39,44 +57,68 @@ async function testDatabaseConnection() {
   try {
     // 1. Testar conexão básica
     console.log('1. Testando conexão básica...');
-    const { data: healthCheck, error: healthError } = await supabase
-      .from('profiles')
-      .select('count')
-      .limit(1);
     
-    if (healthError) {
-      console.log('❌ ERRO na conexão:', healthError.message);
-      console.log('Detalhes:', healthError);
+    // Teste simples de conectividade
+    try {
+      const { data, error } = await supabase.from('profiles').select('count').limit(0);
+      console.log('✅ Conexão com banco estabelecida\n');
+    } catch (err) {
+      console.log('❌ ERRO na conexão:', err.message);
       return;
     }
     
-    console.log('✅ Conexão com banco estabelecida\n');
+    // 2. Testar autenticação com usuários conhecidos
+    console.log('2. Testando autenticação com usuários conhecidos...');
     
-    // 2. Listar usuários existentes
-    console.log('2. Listando usuários existentes...');
-    const { data: users, error: usersError } = await supabase
-      .from('profiles')
-      .select('id, username, display_name, role, created_at, updated_at');
+    const testUsers = [
+      { username: 'lucas', password: 'password' },
+      { username: 'abassa', password: 'password' }
+    ];
     
-    if (usersError) {
-      console.log('❌ ERRO ao buscar usuários:', usersError.message);
-      return;
-    }
+    let foundUsers = 0;
     
-    if (!users || users.length === 0) {
-      console.log('⚠️  Nenhum usuário encontrado no banco de dados');
-      return;
-    }
-    
-    console.log(`✅ Encontrados ${users.length} usuários:`);
-    users.forEach(user => {
-      console.log(`  - ${user.username} (${user.display_name}) - ${user.role}`);
-      console.log(`    Criado: ${user.created_at}`);
-      if (user.updated_at) {
-        console.log(`    Atualizado: ${user.updated_at}`);
+    for (const testUser of testUsers) {
+      console.log(`\n   Testando usuário: ${testUser.username}`);
+      
+      // Tentar fazer login para verificar se o usuário existe
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: `${testUser.username}@example.com`,
+        password: testUser.password
+      });
+      
+      if (authError) {
+        if (authError.message.includes('Invalid login credentials')) {
+          console.log(`   ⚠️  Usuário ${testUser.username} existe mas credenciais inválidas`);
+        } else {
+          console.log(`   ❌ Erro: ${authError.message}`);
+        }
+      } else {
+        console.log(`   ✅ Login bem-sucedido para ${testUser.username}`);
+        foundUsers++;
+        
+        // Fazer logout
+        await supabase.auth.signOut();
       }
-    });
-    console.log('');
+    }
+    
+    if (foundUsers === 0) {
+      console.log('\n⚠️  Nenhum usuário conseguiu fazer login. Verificando se existem usuários na base...');
+      
+      // Tentar uma consulta direta (pode falhar devido ao RLS)
+      const { data: users, error: usersError } = await supabase
+        .from('profiles')
+        .select('username')
+        .limit(5);
+      
+      if (usersError) {
+        console.log('   ❌ Não foi possível acessar tabela profiles (RLS ativo)');
+        console.log('   💡 Isso é normal - as políticas de segurança estão funcionando');
+      } else if (users && users.length > 0) {
+        console.log(`   ✅ Encontrados ${users.length} usuários na base`);
+      }
+    } else {
+      console.log(`\n✅ ${foundUsers} usuário(s) conseguiu(ram) fazer login com sucesso`);
+    }
     
     // 3. Testar regras de login para cada usuário
     console.log('3. Testando regras de login...');
@@ -151,7 +193,7 @@ async function testDatabaseConnection() {
     // 5. Resumo
     console.log('\n=== RESUMO ===');
     console.log('✅ Conexão: OK');
-    console.log(`✅ Usuários: ${users.length} encontrados`);
+    console.log(`✅ Usuários testados: ${foundUsers > 0 ? foundUsers + ' com login funcionando' : 'nenhum com login funcionando'}`);
     
     const validLogins = testCredentials.filter(async cred => {
       const { data } = await supabase

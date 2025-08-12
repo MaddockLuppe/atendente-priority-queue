@@ -7,9 +7,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function createAdminUser() {
-  const username = 'lucas';
-  const password = '12061409';
-  const displayName = 'Lucas - Administrador';
+  const username = 'admin';
+  const password = 'admin123';
+  const displayName = 'Administrador';
   const role = 'admin';
   
   try {
@@ -24,14 +24,19 @@ async function createAdminUser() {
     
     // Criar timestamp para o nome do arquivo de migração
     const timestamp = new Date().toISOString().replace(/[-:T]/g, '').split('.')[0];
-    const migrationFileName = `${timestamp}_create_admin_user_lucas.sql`;
+    const migrationFileName = `${timestamp}_create_admin_user.sql`;
     const migrationPath = path.join(__dirname, '..', 'supabase', 'migrations', migrationFileName);
     
     // Conteúdo da migração SQL
-    const migrationContent = `-- Criar usuário administrador: ${username}
+    const migrationContent = `-- Remover todos os usuários existentes e criar novo admin
+-- Usuário: ${username}
 -- Senha: ${password}
 -- Gerado automaticamente em: ${new Date().toISOString()}
 
+-- Remover todos os usuários existentes
+DELETE FROM profiles;
+
+-- Criar novo usuário administrador
 INSERT INTO profiles (user_id, username, display_name, role, password_hash)
 VALUES (
   gen_random_uuid(),
@@ -39,12 +44,7 @@ VALUES (
   '${displayName}',
   '${role}',
   '${passwordHash}'
-) ON CONFLICT (username) 
-DO UPDATE SET 
-  password_hash = '${passwordHash}',
-  display_name = '${displayName}',
-  role = '${role}',
-  updated_at = now();
+);
 
 -- Verificar se o usuário foi criado corretamente
 SELECT 

@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { loginSchema, createUserSchema, sanitizeString, loginRateLimiter } from '@/lib/validation';
 import { useSecureSession } from '@/hooks/useSecureSession';
 import { useToast } from '@/hooks/use-toast';
+import AuthLogger from '@/lib/auth-logger';
 
 export type UserRole = 'admin' | 'attendant' | 'viewer';
 
@@ -74,7 +75,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const login = async (username: string, password: string): Promise<boolean> => {
+    const startTime = Date.now();
+    
     try {
+      // Log da tentativa de login
+      AuthLogger.loginAttempt(username, { 
+        timestamp: new Date().toISOString(),
+        userAgent: window.navigator.userAgent.slice(0, 100)
+      });
+
       // Sanitizar entradas
       const sanitizedUsername = sanitizeString(username);
       const sanitizedPassword = password; // Não sanitizar senha para preservar caracteres especiais
@@ -86,6 +95,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (!validation.success) {
+        const errors = validation.error.errors.map(e => e.message);
+        AuthLogger.validationError('login', sanitizedUsername, errors);
+        
         toast({
           title: "Dados inválidos",
           description: validation.error.errors[0].message,
@@ -98,6 +110,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const clientId = `${sanitizedUsername}_${window.navigator.userAgent.slice(0, 50)}`;
       if (!loginRateLimiter.isAllowed(clientId)) {
         const remainingTime = Math.ceil(loginRateLimiter.getRemainingTime(clientId) / 1000 / 60);
+        
+        AuthLogger.rateLimitExceeded(sanitizedUsername, remainingTime);
+        
         toast({
           title: "Muitas tentativas",
           description: `Tente novamente em ${remainingTime} minutos`,
@@ -107,6 +122,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Buscar dados do usuário
+      AuthLogger.log('database_query', { 
+        action: 'fetch_user_profile', 
+        username: sanitizedUsername 
+      });
+      
       const { data: profileData, error } = await supabase
         .from('profiles')
         .select('id, username, display_name, role, password_hash')
@@ -114,6 +134,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .single();
         
       if (error || !profileData) {
+        AuthLogger.databaseError('fetch_user_profile', error?.message || 'User not found', {
+          username: sanitizedUsername,
+          errorCode: error?.code,
+          errorDetails: error?.details
+        });
+        
         toast({
           title: "Erro no login",
           description: "Usuário ou senha incorretos",
@@ -122,7 +148,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
       
+      // Log do usuário encontrado (sem dados sensíveis)
+      AuthLogger.log('user_found', {
+        username: sanitizedUsername,
+        userId: profileData.id,
+        role: profileData.role,
+        hasPasswordHash: !!profileData.password_hash
+      });
+      
       // Verificar senha
+      AuthLogger.log('password_verification', { 
+        username: sanitizedUsername,
+        action: 'bcrypt_compare_start'
+      });
+      
       const isValid = await bcrypt.compare(sanitizedPassword, profileData.password_hash);
       
       if (isValid) {
@@ -132,6 +171,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           name: profileData.display_name,
           role: profileData.role as UserRole
         };
+        
+        // Log de sucesso
+        const loginDuration = Date.now() - startTime;
+        AuthLogger.loginSuccess(sanitizedUsername, profileData.id);
+        AuthLogger.log('login_performance', {
+          username: sanitizedUsername,
+          duration: loginDuration,
+          action: 'login_completed'
+        });
         
         // Usar sessão segura
         updateSession(user);
@@ -147,6 +195,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return true;
       }
       
+      // Log de falha na senha
+      AuthLogger.loginFailure(sanitizedUsername, 'Invalid password', {
+        reason: 'password_mismatch',
+        hasPasswordHash: !!profileData.password_hash
+      });
+      
       toast({
         title: "Erro no login",
         description: "Usuário ou senha incorretos",
@@ -154,6 +208,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       return false;
     } catch (error) {
+      // Log de erro geral
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      AuthLogger.loginFailure(username, errorMessage, {
+        errorType: 'system_error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
       console.error('Erro no login:', error);
       toast({
         title: "Erro no sistema",
@@ -165,6 +226,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
+    // Log do logout
+    if (user) {
+      AuthLogger.logout(user.username, user.id);
+    } else {
+      AuthLogger.log('logout_attempt', { reason: 'no_active_session' });
+    }
+    
     clearSession();
     toast({
       title: "Logout realizado",
