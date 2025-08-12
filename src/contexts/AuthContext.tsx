@@ -179,8 +179,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         AuthLogger.loginSuccess(sanitizedUsername, profileData.id);
         AuthLogger.log('login_performance', {
           username: sanitizedUsername,
-          duration: loginDuration,
-          action: 'login_completed'
+          details: { duration: loginDuration }
         });
         
         // Usar sessão segura
@@ -232,7 +231,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (user) {
       AuthLogger.logout(user.username, user.id);
     } else {
-      AuthLogger.log('logout_attempt', { reason: 'no_active_session' });
+      AuthLogger.log('logout_attempt', { details: { reason: 'no_active_session' } });
     }
     
     clearSession();
