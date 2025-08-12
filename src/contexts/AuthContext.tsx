@@ -152,8 +152,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       AuthLogger.log('user_found', {
         username: sanitizedUsername,
         userId: profileData.id,
-        role: profileData.role,
-        hasPasswordHash: !!profileData.password_hash
+        details: {
+          role: profileData.role,
+          hasPasswordHash: !!profileData.password_hash
+        }
       });
       
       // Verificar senha
