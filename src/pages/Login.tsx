@@ -5,15 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
-import { validatePasswordStrength } from '@/lib/validation';
+import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Redirecionar se já estiver logado
   useEffect(() => {
@@ -25,22 +25,19 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação básica no frontend
-    if (!username.trim() || !password.trim()) {
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      const success = await login(username.trim(), password);
-      if (success) {
-        navigate('/atendimentos');
-      }
-    } catch (error) {
-      console.error('Erro no login:', error);
-    } finally {
-      setIsLoading(false);
+    const success = await login(username, password);
+    if (success) {
+      toast({
+        title: "Login realizado com sucesso",
+        description: "Bem-vindo ao sistema!",
+      });
+      navigate('/atendimentos');
+    } else {
+      toast({
+        title: "Erro no login",
+        description: "Usuário ou senha incorretos",
+        variant: "destructive",
+      });
     }
   };
 
@@ -77,8 +74,8 @@ const Login = () => {
                   required
                 />
               </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Entrando...' : 'Entrar'}
+            <Button type="submit" className="w-full">
+              Entrar
             </Button>
           </form>
         </CardContent>
