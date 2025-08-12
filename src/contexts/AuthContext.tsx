@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!profile) return false;
 
       const user: User = {
-        id: profile.user_id,
+        id: profile.id,
         username: profile.username,
         name: profile.display_name,
         role: profile.role as UserRole,

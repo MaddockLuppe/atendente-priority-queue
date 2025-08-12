@@ -194,7 +194,7 @@ export type Database = {
       authenticate_user_secure: {
         Args: { p_username: string; p_password: string }
         Returns: {
-          user_id: string
+          id: string
           username: string
           display_name: string
           role: string
