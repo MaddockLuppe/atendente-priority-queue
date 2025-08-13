@@ -45,6 +45,7 @@ export const useTicketSystem = () => {
   });
   const [history, setHistory] = useState<AttendmentHistory[]>([]);
   const [timers, setTimers] = useState<Record<string, { timer: number; warning: number }>>({});
+  const [operationsInProgress, setOperationsInProgress] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   // Carrega dados iniciais
@@ -65,22 +66,35 @@ export const useTicketSystem = () => {
 
   const loadAttendants = async () => {
     try {
-      const { data: attendantsData, error: attendantsError } = await supabase
-        .from('attendants')
-        .select('*')
-        .order('name');
+      // Carrega atendentes e tickets em uma única consulta otimizada
+      const [attendantsResult, ticketsResult] = await Promise.all([
+        supabase
+          .from('attendants')
+          .select('id, name, is_active')
+          .order('name'),
+        supabase
+          .from('tickets')
+          .select('id, ticket_number, ticket_type, created_at, called_at, completed_at, attendant_id, status')
+          .in('status', ['waiting', 'in-service'])
+      ]);
 
-      if (attendantsError) throw attendantsError;
+      if (attendantsResult.error) throw attendantsResult.error;
+      if (ticketsResult.error) throw ticketsResult.error;
 
-      const { data: ticketsData, error: ticketsError } = await supabase
-        .from('tickets')
-        .select('*')
-        .in('status', ['waiting', 'in-service']);
+      const attendantsData = attendantsResult.data;
+      const ticketsData = ticketsResult.data;
 
-      if (ticketsError) throw ticketsError;
+      // Cria um mapa de tickets por atendente para melhor performance
+      const ticketsByAttendant = new Map<string, any[]>();
+      ticketsData.forEach(ticket => {
+        if (!ticketsByAttendant.has(ticket.attendant_id)) {
+          ticketsByAttendant.set(ticket.attendant_id, []);
+        }
+        ticketsByAttendant.get(ticket.attendant_id)!.push(ticket);
+      });
 
       const mappedAttendants: Attendant[] = attendantsData.map(attendant => {
-        const attendantTickets = ticketsData.filter(t => t.attendant_id === attendant.id);
+        const attendantTickets = ticketsByAttendant.get(attendant.id) || [];
         const currentTicket = attendantTickets.find(t => t.status === 'in-service');
         const queueTickets = attendantTickets.filter(t => t.status === 'waiting');
 
@@ -106,7 +120,37 @@ export const useTicketSystem = () => {
         .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Se não existe nenhum registro, criar um inicial
+        if (error.code === 'PGRST116') {
+          console.log('Nenhum estado de fila encontrado, criando estado inicial...');
+          const { data: newData, error: insertError } = await supabase
+            .from('queue_state')
+            .insert({
+              next_preferential_number: 1,
+              next_normal_number: 1
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('Erro ao criar estado inicial da fila:', insertError);
+            // Usar valores padrão se não conseguir inserir
+            setQueueState({
+              nextPreferentialNumber: 1,
+              nextNormalNumber: 1,
+            });
+            return;
+          }
+
+          setQueueState({
+            nextPreferentialNumber: newData.next_preferential_number,
+            nextNormalNumber: newData.next_normal_number,
+          });
+          return;
+        }
+        throw error;
+      }
 
       setQueueState({
         nextPreferentialNumber: data.next_preferential_number,
@@ -114,12 +158,18 @@ export const useTicketSystem = () => {
       });
     } catch (error) {
       console.error('Erro ao carregar estado da fila:', error);
+      // Usar valores padrão em caso de erro
+      setQueueState({
+        nextPreferentialNumber: 1,
+        nextNormalNumber: 1,
+      });
     }
   };
 
   const loadHistory = async () => {
     try {
-      const today = new Date().toLocaleDateString('pt-BR');
+      const today = new Date().toISOString().split('T')[0];
+      
       const { data, error } = await supabase
         .from('attendance_history')
         .select('*')
@@ -128,20 +178,26 @@ export const useTicketSystem = () => {
 
       if (error) throw error;
 
-      const mappedHistory: AttendmentHistory[] = data.map(item => ({
-        id: item.id,
-        attendantId: item.attendant_id,
-        attendantName: item.attendant_name,
-        ticketNumber: item.ticket_number,
-        ticketType: item.ticket_type as 'preferencial' | 'normal',
-        startTime: new Date(item.start_time),
-        endTime: new Date(item.end_time),
-        date: item.service_date,
-      }));
+      const mappedHistory: AttendmentHistory[] = data.map(item => {
+        // Converter data do banco (YYYY-MM-DD) para formato brasileiro (DD/MM/YYYY)
+        const dbDate = new Date(item.service_date + 'T00:00:00');
+        const brazilianDate = dbDate.toLocaleDateString('pt-BR');
+        
+        return {
+          id: item.id,
+          attendantId: item.attendant_id,
+          attendantName: item.attendant_name,
+          ticketNumber: item.ticket_number,
+          ticketType: item.ticket_type as 'preferencial' | 'normal',
+          startTime: new Date(item.start_time),
+          endTime: new Date(item.end_time),
+          date: brazilianDate,
+        };
+      });
 
       setHistory(mappedHistory);
     } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
+      console.error('❌ Erro ao carregar histórico:', error);
     }
   };
 
@@ -360,6 +416,13 @@ export const useTicketSystem = () => {
   }, [attendants]);
 
   const callNextTicket = useCallback(async (attendantId: string) => {
+    const operationKey = `call-${attendantId}`;
+    
+    // Evita múltiplas chamadas simultâneas
+    if (operationsInProgress.has(operationKey)) return;
+    
+    setOperationsInProgress(prev => new Set(prev).add(operationKey));
+    
     try {
       const attendant = attendants.find(a => a.id === attendantId);
       if (!attendant || attendant.currentTicket || attendant.queueTickets.length === 0) return;
@@ -370,6 +433,18 @@ export const useTicketSystem = () => {
 
       if (!nextTicket) return;
 
+      // Atualiza o estado local imediatamente para melhor UX
+      const updatedAttendants = attendants.map(att => {
+        if (att.id === attendantId) {
+          const updatedQueueTickets = att.queueTickets.filter(t => t.id !== nextTicket.id);
+          const currentTicket = { ...nextTicket, status: 'in-service' as const, calledAt: new Date() };
+          return { ...att, currentTicket, queueTickets: updatedQueueTickets };
+        }
+        return att;
+      });
+      setAttendants(updatedAttendants);
+
+      // Atualiza no banco em background
       const { error } = await supabase
         .from('tickets')
         .update({
@@ -378,22 +453,39 @@ export const useTicketSystem = () => {
         })
         .eq('id', nextTicket.id);
 
-      if (error) throw error;
-
-      await loadAttendants();
+      if (error) {
+        console.error('Erro ao chamar próximo ticket:', error);
+        // Reverte o estado local em caso de erro
+        await loadAttendants();
+      }
     } catch (error) {
       console.error('Erro ao chamar próximo ticket:', error);
+      // Reverte o estado local em caso de erro
+      await loadAttendants();
+    } finally {
+      setOperationsInProgress(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(operationKey);
+        return newSet;
+      });
     }
-  }, [attendants]);
+  }, [attendants, operationsInProgress]);
 
   const completeTicket = useCallback(async (attendantId: string) => {
+    const operationKey = `complete-${attendantId}`;
+    
+    // Evita múltiplas chamadas simultâneas
+    if (operationsInProgress.has(operationKey)) return;
+    
+    setOperationsInProgress(prev => new Set(prev).add(operationKey));
+    
     try {
       const attendant = attendants.find(a => a.id === attendantId);
       if (!attendant?.currentTicket) return;
 
       const completedAt = new Date();
       const calledAt = new Date(attendant.currentTicket.calledAt!);
-      const serviceDate = completedAt.toLocaleDateString('pt-BR');
+      const serviceDate = completedAt.toISOString().split('T')[0];
 
       // Limpa timers antes de fazer as operações
       if (timers[attendantId]) {
@@ -405,8 +497,27 @@ export const useTicketSystem = () => {
         });
       }
 
+      // Atualiza o estado local imediatamente para melhor UX
+      const updatedAttendants = attendants.map(att => {
+        if (att.id === attendantId) {
+          return { ...att, currentTicket: undefined };
+        }
+        return att;
+      });
+      setAttendants(updatedAttendants);
+
+      const historyData = {
+        attendant_id: attendantId,
+        attendant_name: attendant.name,
+        ticket_number: attendant.currentTicket.number,
+        ticket_type: attendant.currentTicket.type,
+        start_time: calledAt.toISOString(),
+        end_time: completedAt.toISOString(),
+        service_date: serviceDate
+      };
+
       // Executa as operações em paralelo para melhor performance
-      const [ticketResult, historyResult] = await Promise.all([
+      const results = await Promise.allSettled([
         supabase
           .from('tickets')
           .update({
@@ -417,26 +528,46 @@ export const useTicketSystem = () => {
         
         supabase
           .from('attendance_history')
-          .insert({
-            attendant_id: attendantId,
-            attendant_name: attendant.name,
-            ticket_number: attendant.currentTicket.number,
-            ticket_type: attendant.currentTicket.type,
-            start_time: calledAt.toISOString(),
-            end_time: completedAt.toISOString(),
-            service_date: serviceDate
-          })
+          .insert(historyData)
       ]);
 
-      if (ticketResult.error) throw ticketResult.error;
-      if (historyResult.error) throw historyResult.error;
+      // Verifica se houve erros
+      const ticketResult = results[0];
+      const historyResult = results[1];
+      
+      let hasError = false;
+      if (ticketResult.status === 'rejected' || (ticketResult.status === 'fulfilled' && ticketResult.value.error)) {
+        console.error('Erro ao atualizar ticket:', ticketResult.status === 'rejected' ? ticketResult.reason : ticketResult.value.error);
+        hasError = true;
+      }
+      if (historyResult.status === 'rejected' || (historyResult.status === 'fulfilled' && historyResult.value.error)) {
+        console.error('Erro ao inserir no histórico:', historyResult.status === 'rejected' ? historyResult.reason : historyResult.value.error);
+        hasError = true;
+      }
 
-      // Recarrega apenas os dados necessários
-      await Promise.all([loadAttendants(), loadHistory()]);
+      if (hasError) {
+        // Reverte o estado local em caso de erro
+        await loadAttendants();
+        return;
+      }
+
+      // Recarrega apenas o histórico se tudo deu certo
+      await loadHistory();
     } catch (error) {
-      console.error('Erro ao completar ticket:', error);
+      console.error('💥 Erro ao completar ticket:', error);
+      toast({
+        title: "Erro ao completar atendimento",
+        description: "Ocorreu um erro ao salvar o histórico. Verifique o console.",
+        variant: "destructive",
+      });
+    } finally {
+      setOperationsInProgress(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(operationKey);
+        return newSet;
+      });
     }
-  }, [attendants, timers]);
+  }, [attendants, timers, toast, operationsInProgress]);
 
   const removeTicket = useCallback(async (attendantId: string, ticketId: string) => {
     try {
@@ -475,25 +606,34 @@ export const useTicketSystem = () => {
 
   const getHistoryByDate = useCallback(async (date: string): Promise<AttendmentHistory[]> => {
     try {
-      // A data já vem no formato brasileiro (DD-MM-YYYY) do HistoryViewer
+      // Converter data brasileira (DD/MM/YYYY) para formato do banco (YYYY-MM-DD)
+      const [day, month, year] = date.split('/');
+      const dbDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      
       const { data, error } = await supabase
         .from('attendance_history')
         .select('*')
-        .eq('service_date', date)
+        .eq('service_date', dbDate)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      return data.map(item => ({
-        id: item.id,
-        attendantId: item.attendant_id,
-        attendantName: item.attendant_name,
-        ticketNumber: item.ticket_number,
-        ticketType: item.ticket_type as 'preferencial' | 'normal',
-        startTime: new Date(item.start_time),
-        endTime: new Date(item.end_time),
-        date: item.service_date,
-      }));
+      return data.map(item => {
+        // Converter data do banco (YYYY-MM-DD) para formato brasileiro (DD/MM/YYYY)
+        const dbDate = new Date(item.service_date + 'T00:00:00');
+        const brazilianDate = dbDate.toLocaleDateString('pt-BR');
+        
+        return {
+          id: item.id,
+          attendantId: item.attendant_id,
+          attendantName: item.attendant_name,
+          ticketNumber: item.ticket_number,
+          ticketType: item.ticket_type as 'preferencial' | 'normal',
+          startTime: new Date(item.start_time),
+          endTime: new Date(item.end_time),
+          date: brazilianDate,
+        };
+      });
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);
       return [];
