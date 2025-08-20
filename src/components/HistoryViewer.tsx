@@ -29,13 +29,22 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
   const [history, setHistory] = useState<AttendmentHistory[]>([]);
 
   const handleViewHistory = async () => {
+    console.log('🔍 HistoryViewer: Botão "Ver Histórico" clicado');
+    console.log('📅 HistoryViewer: Data selecionada:', selectedDate);
+    
     if (!isValidDate(selectedDate)) {
+      console.log('❌ HistoryViewer: Data inválida:', selectedDate);
       alert('Por favor, insira uma data válida no formato DD/MM/YYYY');
       return;
     }
+    
+    console.log('✅ HistoryViewer: Data válida, chamando onGetHistoryByDate...');
     const dayHistory = await onGetHistoryByDate(selectedDate);
+    console.log('📋 HistoryViewer: Histórico retornado:', dayHistory);
+    
     setHistory(dayHistory);
     setShowDialog(true);
+    console.log('🎯 HistoryViewer: Dialog aberto com', dayHistory.length, 'registros');
   };
 
   // Função para validar e formatar a data brasileira

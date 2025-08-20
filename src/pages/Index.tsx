@@ -20,6 +20,7 @@ const Index = () => {
   const {
     attendants,
     queueState,
+    history,
     createTicket,
     createBulkTickets,
     callNextTicket,
@@ -30,7 +31,8 @@ const Index = () => {
     updateAttendant,
     deleteAttendant,
     getHistoryByDate,
-    toggleAttendantActive
+    toggleAttendantActive,
+    testHistoryConnection,
   } = useTicketSystem();
   const {
     toast
@@ -218,6 +220,16 @@ const Index = () => {
               </div>
               
               <div className="bg-white/95 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex gap-2 mb-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={testHistoryConnection}
+                    className="bg-yellow-50 border-yellow-200 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    🧪 Testar Conexão Histórico
+                  </Button>
+                </div>
                 <HistoryViewer onGetHistoryByDate={getHistoryByDate} />
               </div>
             </div>
