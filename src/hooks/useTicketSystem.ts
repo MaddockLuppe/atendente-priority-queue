@@ -665,7 +665,7 @@ export const useTicketSystem = () => {
           })
           .eq('id', attendant.currentTicket.id),
         
-        insertAttendanceHistory(historyData)
+        supabase.rpc('insert_attendance_history', historyData)
       ]);
 
       // Verifica se houve erros
@@ -674,14 +674,24 @@ export const useTicketSystem = () => {
       console.log('📊 Resultado da atualização do ticket:', ticketResult);
       console.log('📊 Resultado da inserção no histórico:', historyResult);
       
-      if (ticketResult.error) {
-        console.error('❌ Erro ao atualizar ticket:', ticketResult.error);
-        throw new Error(`Erro ao atualizar ticket: ${ticketResult.error.message}`);
+      if (ticketResult.status === 'rejected') {
+        console.error('❌ Erro ao atualizar ticket:', ticketResult.reason);
+        throw new Error(`Erro ao atualizar ticket: ${ticketResult.reason}`);
       }
       
-      if (historyResult.error) {
-        console.error('❌ Erro ao inserir no histórico:', historyResult.error);
-        throw new Error(`Erro ao salvar histórico: ${historyResult.error.message}`);
+      if (ticketResult.status === 'fulfilled' && ticketResult.value.error) {
+        console.error('❌ Erro ao atualizar ticket:', ticketResult.value.error);
+        throw new Error(`Erro ao atualizar ticket: ${ticketResult.value.error.message}`);
+      }
+      
+      if (historyResult.status === 'rejected') {
+        console.error('❌ Erro ao inserir no histórico:', historyResult.reason);
+        throw new Error(`Erro ao salvar histórico: ${historyResult.reason}`);
+      }
+      
+      if (historyResult.status === 'fulfilled' && historyResult.value.error) {
+        console.error('❌ Erro ao inserir no histórico:', historyResult.value.error);
+        throw new Error(`Erro ao salvar histórico: ${historyResult.value.error.message}`);
       }
       
       console.log('✅ Ticket atualizado e histórico salvo com sucesso');

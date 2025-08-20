@@ -202,12 +202,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const changePassword = async (userId: string, newPassword: string): Promise<void> => {
     try {
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      // Use RPC to update password securely on the server
+      const { error } = await supabase.rpc('admin_update_password', {
+        p_user_id: userId,
+        p_new_password: newPassword
+      });
       
-      const { error } = await supabase
-        .from('profiles')
-        .update({ password_hash: hashedPassword })
-        .eq('id', userId);
+      if (error) {
+        throw new Error(error.message || 'Erro ao alterar senha');
+      }
       
       if (error) throw error;
     } catch (error) {
