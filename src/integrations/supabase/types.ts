@@ -195,6 +195,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      admin_update_password: {
+        Args: { p_new_password: string; p_user_id: string }
+        Returns: Json
+      }
       authenticate_user: {
         Args: { p_password_hash: string; p_username: string }
         Returns: {
