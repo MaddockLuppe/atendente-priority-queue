@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const { login, user } = useAuth();
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
     const success = await login(username, password);
     if (success) {
@@ -39,7 +41,10 @@ const Login = () => {
         variant: "destructive",
       });
     }
+    setLoading(false);
   };
+
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -74,8 +79,8 @@ const Login = () => {
                   required
                 />
               </div>
-            <Button type="submit" className="w-full">
-              Entrar
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
         </CardContent>

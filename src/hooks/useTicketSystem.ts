@@ -515,6 +515,17 @@ export const useTicketSystem = () => {
         end_time: completedAt.toISOString(),
         service_date: serviceDate
       };
+      
+      console.log('💾 Inserindo dados no histórico:', historyData);
+      console.log('🔧 Usando função RPC insert_attendance_history com parâmetros:', {
+        p_attendant_id: attendantId,
+        p_attendant_name: attendant.name,
+        p_ticket_number: attendant.currentTicket.number,
+        p_ticket_type: attendant.currentTicket.type,
+        p_start_time: calledAt.toISOString(),
+        p_end_time: completedAt.toISOString(),
+        p_service_date: serviceDate
+      });
 
       // Executa as operações em paralelo para melhor performance
       const results = await Promise.allSettled([
@@ -526,23 +537,50 @@ export const useTicketSystem = () => {
           })
           .eq('id', attendant.currentTicket.id),
         
-        supabase
-          .from('attendance_history')
-          .insert(historyData)
+        supabase.rpc('insert_attendance_history', {
+          p_attendant_id: attendantId,
+          p_attendant_name: attendant.name,
+          p_ticket_number: attendant.currentTicket.number,
+          p_ticket_type: attendant.currentTicket.type,
+          p_start_time: calledAt.toISOString(),
+          p_end_time: completedAt.toISOString(),
+          p_service_date: serviceDate
+        })
       ]);
 
       // Verifica se houve erros
       const ticketResult = results[0];
       const historyResult = results[1];
       
+      console.log('📊 Resultado da atualização do ticket:', ticketResult);
+      console.log('📊 Resultado da inserção no histórico:', historyResult);
+      
       let hasError = false;
       if (ticketResult.status === 'rejected' || (ticketResult.status === 'fulfilled' && ticketResult.value.error)) {
-        console.error('Erro ao atualizar ticket:', ticketResult.status === 'rejected' ? ticketResult.reason : ticketResult.value.error);
+        console.error('❌ Erro ao atualizar ticket:', ticketResult.status === 'rejected' ? ticketResult.reason : ticketResult.value.error);
         hasError = true;
+      } else {
+        console.log('✅ Ticket atualizado com sucesso');
       }
+      
       if (historyResult.status === 'rejected' || (historyResult.status === 'fulfilled' && historyResult.value.error)) {
-        console.error('Erro ao inserir no histórico:', historyResult.status === 'rejected' ? historyResult.reason : historyResult.value.error);
+        const errorDetails = historyResult.status === 'rejected' ? historyResult.reason : historyResult.value.error;
+        console.error('❌ Erro ao inserir no histórico via RPC:', errorDetails);
+        console.error('🔍 Detalhes completos do erro:', JSON.stringify(errorDetails, null, 2));
         hasError = true;
+      } else {
+        const rpcResult = historyResult.status === 'fulfilled' ? historyResult.value.data : null;
+        console.log('✅ Histórico inserido com sucesso via RPC:', rpcResult);
+        
+        // Verificar se a função RPC retornou sucesso
+        if (rpcResult && typeof rpcResult === 'object' && 'success' in rpcResult) {
+          if (!rpcResult.success) {
+            console.error('❌ Função RPC retornou erro:', rpcResult.error || 'Erro desconhecido');
+            hasError = true;
+          } else {
+            console.log('🎉 RPC confirmou inserção bem-sucedida:', rpcResult.message);
+          }
+        }
       }
 
       if (hasError) {
@@ -606,9 +644,13 @@ export const useTicketSystem = () => {
 
   const getHistoryByDate = useCallback(async (date: string): Promise<AttendmentHistory[]> => {
     try {
+      console.log('🔍 Buscando histórico para a data:', date);
+      
       // Converter data brasileira (DD/MM/YYYY) para formato do banco (YYYY-MM-DD)
       const [day, month, year] = date.split('/');
       const dbDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      
+      console.log('📅 Data convertida para o banco:', dbDate);
       
       const { data, error } = await supabase
         .from('attendance_history')
@@ -616,9 +658,31 @@ export const useTicketSystem = () => {
         .eq('service_date', dbDate)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro na consulta Supabase:', error);
+        throw error;
+      }
 
-      return data.map(item => {
+      console.log('📊 Dados retornados do banco:', data);
+      console.log('📈 Quantidade de registros encontrados:', data?.length || 0);
+
+      if (!data || data.length === 0) {
+        console.log('⚠️ Nenhum registro encontrado para a data:', dbDate);
+        
+        // Vamos também buscar todos os registros para debug
+        const { data: allData, error: allError } = await supabase
+          .from('attendance_history')
+          .select('service_date')
+          .order('created_at', { ascending: false });
+        
+        if (!allError && allData) {
+          console.log('📋 Todas as datas disponíveis no banco:', allData.map(item => item.service_date));
+        }
+        
+        return [];
+      }
+
+      const mappedData = data.map(item => {
         // Converter data do banco (YYYY-MM-DD) para formato brasileiro (DD/MM/YYYY)
         const dbDate = new Date(item.service_date + 'T00:00:00');
         const brazilianDate = dbDate.toLocaleDateString('pt-BR');
@@ -634,8 +698,11 @@ export const useTicketSystem = () => {
           date: brazilianDate,
         };
       });
+      
+      console.log('✅ Dados mapeados:', mappedData);
+      return mappedData;
     } catch (error) {
-      console.error('Erro ao buscar histórico:', error);
+      console.error('💥 Erro ao buscar histórico:', error);
       return [];
     }
   }, []);
