@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import bcrypt from 'bcryptjs';
 
 export type UserRole = 'admin' | 'attendant' | 'viewer';
 
@@ -36,41 +37,168 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadUsers();
-    checkStoredSession();
+    const initializeAuth = async () => {
+      await checkStoredSession();
+      // loadUsers será chamado automaticamente se for admin
+    };
+    
+    initializeAuth();
   }, []);
 
   const loadUsers = async () => {
     try {
-      // Usar função RPC que bypassa RLS
-      const { data, error } = await supabase.rpc('get_all_users');
+      console.log('🔄 Carregando usuários da tabela profiles...');
+      console.log('👤 Usuário atual:', user);
+      
+      // Verificar conectividade com Supabase
+      console.log('🔗 Testando conectividade com Supabase...');
+      const { data: testData, error: testError } = await supabase
+        .from('profiles')
+        .select('count', { count: 'exact', head: true });
+      
+      console.log('🧪 Teste de conectividade:', { testData, testError });
+      
+      // Verificar se o usuário atual é admin
+      console.log('🔍 Verificando se usuário é admin...');
+      const { data: adminCheck, error: adminError } = await supabase
+        .rpc('is_current_user_admin');
+      
+      console.log('📊 Resultado is_current_user_admin:', adminCheck);
+      if (adminError) {
+        console.log('⚠️ Erro ao verificar admin:', adminError);
+      }
+      
+      // Consultar diretamente a tabela profiles para obter todos os usuários
+      console.log('📊 Executando consulta principal...');
+      
+      let data, error;
+      
+      if (adminCheck === true) {
+        // Admin pode ver todos os usuários
+        console.log('🔑 Consultando como admin - todos os usuários');
+        const result = await supabase
+          .from('profiles')
+          .select('id, username, display_name, role')
+          .order('display_name');
+        data = result.data;
+        error = result.error;
+      } else {
+        // Usuário comum vê apenas seu próprio perfil
+        console.log('👤 Consultando como usuário comum - apenas próprio perfil');
+        if (user) {
+          const result = await supabase
+            .from('profiles')
+            .select('id, username, display_name, role')
+            .eq('id', user.id)
+            .single();
+          data = result.data ? [result.data] : [];
+          error = result.error;
+        } else {
+          data = [];
+          error = null;
+        }
+      }
+      
+      console.log('📊 Resultado da consulta profiles:', { 
+        data, 
+        error, 
+        count: data?.length,
+        usuarios: data?.map(u => ({ username: u.username, role: u.role })) 
+      });
       
       if (error) {
-        console.error('Erro ao carregar usuários:', error);
-        throw error;
+        console.error('❌ Erro ao consultar tabela profiles:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        // Tentar consulta sem filtros para debug
+        console.log('🔍 Tentando consulta de debug sem filtros...');
+        try {
+          const { data: debugData, error: debugError } = await supabase
+            .from('profiles')
+            .select('*');
+          console.log('🔍 Resultado debug:', { debugData, debugError });
+        } catch (debugErr) {
+          console.log('🔍 Erro na consulta debug:', debugErr);
+        }
+        
+        // Se houver erro, manter lista vazia e mostrar apenas o usuário atual se existir
+        if (user) {
+          const currentUserAsProfile = {
+            id: user.id,
+            username: user.username,
+            display_name: user.name,
+            role: user.role
+          };
+          console.log('⚠️ Usando apenas usuário atual devido ao erro:', currentUserAsProfile);
+          setUsers([{
+            id: currentUserAsProfile.id,
+            username: currentUserAsProfile.username,
+            name: currentUserAsProfile.display_name,
+            role: currentUserAsProfile.role as UserRole
+          }]);
+        } else {
+          setUsers([]);
+        }
+        return;
       }
       
       // data já vem como array de objetos JSON
-      const mappedUsers = (data || []).map((profile: any) => ({
-        id: profile.id,
-        username: profile.username,
-        name: profile.display_name,
-        role: profile.role as UserRole
-      }));
-      
-      setUsers(mappedUsers);
+      if (data && data.length > 0) {
+        const mappedUsers = data.map((profile: any) => ({
+          id: profile.id,
+          username: profile.username,
+          name: profile.display_name,
+          role: profile.role as UserRole
+        }));
+        
+        console.log('✅ Usuários carregados com sucesso:', mappedUsers.length);
+        console.log('👥 Lista de usuários:', mappedUsers);
+        setUsers(mappedUsers);
+      } else {
+        console.log('⚠️ Nenhum usuário encontrado na consulta');
+        
+        // Se há um usuário logado, mostrar pelo menos ele
+        if (user) {
+          const currentUserOnly = {
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role
+          };
+          console.log('🔄 Mostrando apenas usuário atual:', currentUserOnly);
+          setUsers([currentUserOnly]);
+        } else {
+          console.log('❌ Nenhum usuário para exibir');
+          setUsers([]);
+        }
+      }
     } catch (error) {
-      console.error('Erro na função loadUsers:', error);
+      console.error('💥 Erro na função loadUsers:', error);
       // Secure error handling without exposing details
     } finally {
       setLoading(false);
     }
   };
 
-  const checkStoredSession = () => {
+  const checkStoredSession = async () => {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const user = JSON.parse(storedUser);
+      setUser(user);
+      
+      // Verificar se há sessão ativa no Supabase Auth
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔍 Sessão do Supabase Auth:', session);
+      
+      // Se for admin, carregar usuários automaticamente
+      if (user.role === 'admin') {
+        console.log('🔄 Admin detectado na sessão armazenada, carregando usuários...');
+        await loadUsers();
+      }
     }
   };
 
@@ -79,6 +207,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
+      console.log('🔐 Tentando fazer login com:', username);
+      
       // Validação segura via RPC no Supabase (verifica senha no servidor)
       const { data, error } = await supabase.rpc('authenticate_user_secure', {
         p_username: username,
@@ -86,11 +216,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (error) {
+        console.error('❌ Erro na autenticação RPC:', error);
         return false;
       }
 
       const profile = Array.isArray(data) ? data[0] : null;
-      if (!profile) return false;
+      if (!profile) {
+        console.error('❌ Perfil não encontrado');
+        return false;
+      }
+
+      console.log('✅ Perfil encontrado:', profile);
+
+      // Fazer login no Supabase Auth para ativar as políticas RLS
+      console.log('🔐 Fazendo login no Supabase Auth...');
+      try {
+        // Usar o user_id do perfil como email temporário para o Supabase Auth
+        const tempEmail = `${profile.user_id}@temp.local`;
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: tempEmail,
+          password: profile.user_id // Usar user_id como senha temporária
+        });
+        
+        if (authError) {
+          console.log('⚠️ Erro no Supabase Auth (esperado se usuário não existe):', authError);
+          // Tentar criar usuário temporário no Supabase Auth
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: tempEmail,
+            password: profile.user_id
+          });
+          
+          if (signUpError) {
+            console.log('⚠️ Erro ao criar usuário no Supabase Auth:', signUpError);
+          } else {
+            console.log('✅ Usuário criado no Supabase Auth:', signUpData);
+          }
+        } else {
+          console.log('✅ Login no Supabase Auth bem-sucedido:', authData);
+        }
+      } catch (authErr) {
+        console.log('⚠️ Erro geral no Supabase Auth:', authErr);
+      }
 
       const user: User = {
         id: profile.id,
@@ -101,16 +267,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       setUser(user);
       localStorage.setItem('currentUser', JSON.stringify(user));
+      
+      // Carregar usuários após login bem-sucedido (especialmente para admins)
+      if (user.role === 'admin') {
+        console.log('🔄 Admin logado, carregando lista de usuários...');
+        await loadUsers();
+      }
+      
       return true;
     } catch (error) {
+      console.error('💥 Erro geral no login:', error);
       return false;
     }
   };
 
 
 
-  const logout = () => {
+  const logout = async () => {
+    // Fazer logout do Supabase Auth também
+    try {
+      await supabase.auth.signOut();
+      console.log('✅ Logout do Supabase Auth realizado');
+    } catch (error) {
+      console.log('⚠️ Erro no logout do Supabase Auth:', error);
+    }
+    
     setUser(null);
+    setUsers([]);
     localStorage.removeItem('currentUser');
   };
 
@@ -202,15 +385,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const changePassword = async (userId: string, newPassword: string): Promise<void> => {
     try {
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      console.log('Iniciando alteração de senha para usuário:', userId);
       
-      const { error } = await supabase
+      // Validar entrada
+      if (!userId || !newPassword) {
+        throw new Error('ID do usuário e nova senha são obrigatórios');
+      }
+      
+      if (newPassword.length < 6) {
+        throw new Error('A senha deve ter pelo menos 6 caracteres');
+      }
+      
+      // Gerar hash da nova senha
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      console.log('Hash da senha gerado com sucesso');
+      
+      // Atualizar senha no banco
+      const { data, error } = await supabase
         .from('profiles')
         .update({ password_hash: hashedPassword })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro do Supabase ao alterar senha:', error);
+        throw new Error(`Erro ao alterar senha: ${error.message}`);
+      }
+      
+      if (!data || data.length === 0) {
+        throw new Error('Usuário não encontrado');
+      }
+      
+      console.log('Senha alterada com sucesso para usuário:', userId);
     } catch (error) {
+      console.error('Erro na função changePassword:', error);
       throw error;
     }
   };

@@ -32,7 +32,7 @@ const Index = () => {
     deleteAttendant,
     getHistoryByDate,
     toggleAttendantActive,
-    testHistoryConnection,
+
   } = useTicketSystem();
   const {
     toast
@@ -115,7 +115,7 @@ const Index = () => {
         {/* Conteúdo Principal */}
         <div className="flex-1 overflow-auto">
           {/* Tela Principal - Atendimentos */}
-          <TabsContent value="atendimentos" className="h-full m-0 p-4 pb-20">
+          <TabsContent value="atendimentos" className="h-full m-0 p-4 pb-32">
             <div className="h-full">
               {/* Header Simplificado */}
               <div className="flex justify-between items-center mb-6">
@@ -184,13 +184,26 @@ const Index = () => {
 
               {/* Grade de Atendentes */}
               <div className="grid gap-4 scroll-container">
-                {attendants.filter(attendant => !showOnlyActive || attendant.isActive).map(attendant => <AttendantCard key={attendant.id} attendant={attendant} queueLength={attendant.queueTickets.length} nextTickets={attendant.queueTickets} isOverdue={isTicketOverdue(attendant.id)} onCallNext={() => handleCallNext(attendant.id)} onComplete={() => handleComplete(attendant.id)} onRemoveTicket={ticketId => handleRemoveTicket(attendant.id, ticketId)} canCallNext={attendant.queueTickets.length > 0} />)}
+                {attendants.filter(attendant => !showOnlyActive || attendant.isActive).map((attendant, index, filteredAttendants) => (
+                  <div key={attendant.id} className={index === filteredAttendants.length - 1 ? "mb-20" : ""}>
+                    <AttendantCard 
+                      attendant={attendant} 
+                      queueLength={attendant.queueTickets.length} 
+                      nextTickets={attendant.queueTickets} 
+                      isOverdue={isTicketOverdue(attendant.id)} 
+                      onCallNext={() => handleCallNext(attendant.id)} 
+                      onComplete={() => handleComplete(attendant.id)} 
+                      onRemoveTicket={ticketId => handleRemoveTicket(attendant.id, ticketId)} 
+                      canCallNext={attendant.queueTickets.length > 0} 
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </TabsContent>
 
           {/* Gerenciamento de Atendentes */}
-          <TabsContent value="attendants" className="h-full m-0 p-4 pb-20">
+          <TabsContent value="attendants" className="h-full m-0 p-4 pb-32">
             <div className="h-full">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 mb-2">
@@ -208,7 +221,7 @@ const Index = () => {
           </TabsContent>
 
           {/* Histórico */}
-          <TabsContent value="history" className="h-full m-0 p-4 pb-20">
+          <TabsContent value="history" className="h-full m-0 p-4 pb-32">
             <div className="h-full">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 mb-2">
@@ -220,16 +233,6 @@ const Index = () => {
               </div>
               
               <div className="bg-white/95 backdrop-blur-sm rounded-lg p-4">
-                <div className="flex gap-2 mb-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={testHistoryConnection}
-                    className="bg-yellow-50 border-yellow-200 text-yellow-800 hover:bg-yellow-100"
-                  >
-                    🧪 Testar Conexão Histórico
-                  </Button>
-                </div>
                 <HistoryViewer onGetHistoryByDate={getHistoryByDate} />
               </div>
             </div>
@@ -330,18 +333,26 @@ const Index = () => {
               }}>
                   Cancelar
                 </Button>
-                <Button onClick={() => {
+                <Button onClick={async () => {
                 if (selectedUser && newPassword) {
-                  // Já temos acesso ao changePassword do contexto de autenticação
-                  // através da desestruturação no início do componente
-                  changePassword(selectedUser, newPassword);
-                  toast({
-                    title: "Senha alterada",
-                    description: "A senha foi alterada com sucesso."
-                  });
-                  setShowChangePasswordDialog(false);
-                  setSelectedUser('');
-                  setNewPassword('');
+                  try {
+                    console.log('Tentando alterar senha para usuário ID:', selectedUser);
+                    await changePassword(selectedUser, newPassword);
+                    toast({
+                      title: "Senha alterada",
+                      description: "A senha foi alterada com sucesso."
+                    });
+                    setShowChangePasswordDialog(false);
+                    setSelectedUser('');
+                    setNewPassword('');
+                  } catch (error) {
+                    toast({
+                      title: "Erro ao alterar senha",
+                      description: "Não foi possível alterar a senha. Tente novamente.",
+                      variant: "destructive"
+                    });
+                    console.error('Erro ao alterar senha:', error);
+                  }
                 }
               }} disabled={!selectedUser || !newPassword}>
                   Salvar

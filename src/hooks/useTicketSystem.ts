@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { supabase, insertAttendanceHistory } from '@/integrations/supabase/client';
+import { supabase, insertAttendanceHistory, getAttendanceHistoryByDate } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Attendant {
@@ -230,80 +230,15 @@ export const useTicketSystem = () => {
     }
   }, []);
   
-  // Função para testar a conexão com o histórico
-  const testHistoryConnection = useCallback(async () => {
-    try {
-      console.log('🧪 Testando conexão com attendance_history...');
-      
-      // Primeiro, verificar se há dados
-      const { data: existingData, error: readError } = await supabase
-        .from('attendance_history')
-        .select('*');
-      
-      if (readError) {
-        console.error('❌ Erro ao ler dados:', readError);
-        return;
-      }
-      
-      console.log('📋 Dados existentes:', existingData);
-      console.log('📊 Total de registros:', existingData?.length || 0);
-      
-      // Sempre criar dados de teste para garantir que há dados para hoje
-      console.log('📝 Criando registros de teste...');
-      const testResult = await createTestHistoryData();
-      
-      if (testResult) {
-        console.log('✅ Dados de teste criados com sucesso');
-      } else {
-        console.log('⚠️ Falha ao criar dados de teste');
-      }
-      
-      // Verificar novamente após inserção
-      const { data: newData, error: newError } = await supabase
-        .from('attendance_history')
-        .select('*');
-      
-      if (newError) {
-        console.error('❌ Erro ao ler dados após inserção:', newError);
-        return;
-      }
-      
-      console.log('📋 Dados após inserção:', newData);
-      console.log('📊 Total de registros após inserção:', newData?.length || 0);
-      
-      // Testar busca por data específica
-      const today = new Date().toISOString().split('T')[0];
-      console.log('🔍 Testando busca por data:', today);
-      
-      const { data: todayData, error: todayError } = await supabase
-        .from('attendance_history')
-        .select('*')
-        .eq('service_date', today);
-      
-      if (todayError) {
-        console.error('❌ Erro ao buscar dados de hoje:', todayError);
-        return;
-      }
-      
-      console.log('📋 Dados de hoje encontrados:', todayData);
-      console.log('📊 Total de registros de hoje:', todayData?.length || 0);
-      
-    } catch (error) {
-      console.error('💥 Erro no teste:', error);
-    }
-  }, [createTestHistoryData]);
+
 
   const loadHistory = async () => {
     try {
-      console.log('📊 Carregando histórico do dia atual...');
-      const today = new Date().toISOString().split('T')[0];
-      console.log('📅 Data de hoje:', today);
+      console.log('📊 Carregando histórico do dia atual com nova implementação...');
+      const today = new Date().toLocaleDateString('pt-BR');
+      console.log('📅 Data de hoje (formato brasileiro):', today);
       
-      const { data, error } = await supabase
-        .from('attendance_history')
-        .select('*')
-        .eq('service_date', today)
-        .order('created_at', { ascending: false });
+      const { data, error } = await getAttendanceHistoryByDate(today);
 
       if (error) {
         console.error('❌ Erro ao carregar histórico:', error);
@@ -313,11 +248,7 @@ export const useTicketSystem = () => {
       console.log('📊 Dados do histórico carregados:', data);
       console.log('📈 Quantidade de registros:', data?.length || 0);
 
-      const mappedHistory: AttendmentHistory[] = data.map(item => {
-        // Converter data do banco (YYYY-MM-DD) para formato brasileiro (DD/MM/YYYY)
-        const dbDate = new Date(item.service_date + 'T00:00:00');
-        const brazilianDate = dbDate.toLocaleDateString('pt-BR');
-        
+      const mappedHistory: AttendmentHistory[] = (data || []).map(item => {
         return {
           id: item.id,
           attendantId: item.attendant_id,
@@ -326,9 +257,37 @@ export const useTicketSystem = () => {
           ticketType: item.ticket_type as 'preferencial' | 'normal',
           startTime: new Date(item.start_time),
           endTime: new Date(item.end_time),
-          date: brazilianDate,
+          date: today, // Usar formato brasileiro
         };
       });
+
+      // Verificar se há registros locais pendentes
+      try {
+        const pendingLocal = JSON.parse(localStorage.getItem('pendingHistoryRecords') || '[]');
+        const todayISO = new Date().toISOString().split('T')[0];
+        const localForToday = pendingLocal.filter((record: any) => 
+          record.service_date === todayISO
+        );
+        
+        if (localForToday.length > 0) {
+          console.log('📱 Encontrados', localForToday.length, 'registros locais pendentes para hoje');
+          
+          const localMapped: AttendmentHistory[] = localForToday.map((item: any) => ({
+            id: item.id,
+            attendantId: item.attendant_id,
+            attendantName: item.attendant_name,
+            ticketNumber: item.ticket_number,
+            ticketType: item.ticket_type as 'preferencial' | 'normal',
+            startTime: new Date(item.start_time),
+            endTime: new Date(item.end_time),
+            date: today,
+          }));
+          
+          mappedHistory.push(...localMapped);
+        }
+      } catch (localError) {
+        console.log('⚠️ Erro ao verificar registros locais:', localError);
+      }
 
       console.log('✅ Histórico mapeado:', mappedHistory);
       setHistory(mappedHistory);
@@ -741,87 +700,18 @@ export const useTicketSystem = () => {
 
   const getHistoryByDate = useCallback(async (date: string): Promise<AttendmentHistory[]> => {
     try {
-      console.log('🔍 Buscando histórico para a data:', date);
+      console.log('🔍 Buscando histórico para data com nova implementação:', date);
       
-      // Converter data brasileira (DD/MM/YYYY) para formato do banco (YYYY-MM-DD)
-      let dbDate: string;
-      
-      if (date.includes('/')) {
-        const [day, month, year] = date.split('/');
-        dbDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-        console.log('📅 Componentes da data:', { day, month, year });
-      } else {
-        // Se já estiver no formato YYYY-MM-DD
-        dbDate = date;
-      }
-      
-      console.log('📅 Data convertida para o banco:', dbDate);
-      
-      // Primeiro, vamos verificar se há dados na tabela
-      const { data: totalCount, error: countError } = await supabase
-        .from('attendance_history')
-        .select('*');
-      
-      console.log('📊 Total de registros na tabela attendance_history:', totalCount?.length || 0);
-      console.log('📋 Todos os registros:', totalCount);
-      
-      if (countError) {
-        console.error('❌ Erro ao contar registros:', countError);
-      }
-      
-      // Buscar registros para a data específica
-      console.log('🔍 Executando consulta com service_date =', dbDate);
-      
-      const { data, error } = await supabase
-        .from('attendance_history')
-        .select('*')
-        .eq('service_date', dbDate)
-        .order('created_at', { ascending: false });
-      
-      console.log('📊 Resultado da consulta:', {
-        dbDate,
-        recordsFound: data?.length || 0,
-        data,
-        error
-      });
+      const { data, error } = await getAttendanceHistoryByDate(date);
 
       if (error) {
-        console.error('❌ Erro na consulta Supabase:', error);
-        console.error('❌ Detalhes do erro:', JSON.stringify(error, null, 2));
+        console.error('❌ Erro ao buscar histórico:', error);
         throw error;
       }
 
-      console.log('📊 Dados retornados do banco para a data específica:', data);
-      console.log('📈 Quantidade de registros encontrados:', data?.length || 0);
+      console.log('📋 Dados encontrados:', data?.length || 0, 'registros');
 
-      if (!data || data.length === 0) {
-        console.log('⚠️ Nenhum registro encontrado para a data:', dbDate);
-        
-        // Se não encontrou dados para a data específica, vamos buscar todos os registros
-        console.log('🔍 Buscando todos os registros para debug...');
-        const { data: allData, error: allError } = await supabase
-          .from('attendance_history')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (!allError && allData && allData.length > 0) {
-          console.log('📋 Todos os registros encontrados:', allData);
-          console.log('📋 Datas disponíveis:', allData.map(item => item.service_date));
-          
-          // Se a data solicitada for hoje e não há registros, retorna array vazio
-          // Se há registros mas não para a data específica, também retorna vazio
-          return [];
-        } else {
-          console.log('📋 Nenhum registro encontrado na tabela attendance_history');
-          return [];
-        }
-      }
-
-      const mappedData = data.map(item => {
-        // Converter data do banco (YYYY-MM-DD) para formato brasileiro (DD/MM/YYYY)
-        const dbDate = new Date(item.service_date + 'T00:00:00');
-        const brazilianDate = dbDate.toLocaleDateString('pt-BR');
-        
+      const mappedHistory: AttendmentHistory[] = (data || []).map(item => {
         return {
           id: item.id,
           attendantId: item.attendant_id,
@@ -830,12 +720,41 @@ export const useTicketSystem = () => {
           ticketType: item.ticket_type as 'preferencial' | 'normal',
           startTime: new Date(item.start_time),
           endTime: new Date(item.end_time),
-          date: brazilianDate,
+          date: date, // Manter formato brasileiro
         };
       });
-      
-      console.log('✅ Dados mapeados:', mappedData);
-      return mappedData;
+
+      // Verificar se há registros locais pendentes para esta data
+      try {
+        const pendingLocal = JSON.parse(localStorage.getItem('pendingHistoryRecords') || '[]');
+        const [day, month, year] = date.split('/');
+        const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        const localForDate = pendingLocal.filter((record: any) => 
+          record.service_date === isoDate
+        );
+        
+        if (localForDate.length > 0) {
+          console.log('📱 Encontrados', localForDate.length, 'registros locais pendentes para', date);
+          
+          const localMapped: AttendmentHistory[] = localForDate.map((item: any) => ({
+            id: item.id,
+            attendantId: item.attendant_id,
+            attendantName: item.attendant_name,
+            ticketNumber: item.ticket_number,
+            ticketType: item.ticket_type as 'preferencial' | 'normal',
+            startTime: new Date(item.start_time),
+            endTime: new Date(item.end_time),
+            date: date,
+          }));
+          
+          mappedHistory.push(...localMapped);
+        }
+      } catch (localError) {
+        console.log('⚠️ Erro ao verificar registros locais:', localError);
+      }
+
+      console.log('✅ Histórico mapeado para', date, ':', mappedHistory);
+      return mappedHistory;
     } catch (error) {
       console.error('💥 Erro ao buscar histórico:', error);
       return [];
@@ -857,6 +776,6 @@ export const useTicketSystem = () => {
     deleteAttendant,
     getHistoryByDate,
     toggleAttendantActive,
-    testHistoryConnection,
+
   };
 };

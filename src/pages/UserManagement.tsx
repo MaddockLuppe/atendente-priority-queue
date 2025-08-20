@@ -40,8 +40,27 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 
 const UserManagement = () => {
-  const { users, addUser, updateUser, deleteUser, user: currentUser } = useAuth();
+  const { users, addUser, updateUser, deleteUser, user: currentUser, loading } = useAuth();
   const { toast } = useToast();
+  
+  // Garantir que sempre temos pelo menos o usuário atual na lista
+  const displayUsers = React.useMemo(() => {
+    if (users.length > 0) {
+      return users;
+    }
+    
+    // Se não há usuários carregados mas há um usuário logado, mostrar ele
+    if (currentUser) {
+      return [{
+        id: currentUser.id,
+        username: currentUser.username,
+        name: currentUser.name,
+        role: currentUser.role
+      }];
+    }
+    
+    return [];
+  }, [users, currentUser]);
 
   // Estado para o formulário de adição
   const [newUser, setNewUser] = useState({
@@ -357,51 +376,65 @@ const UserManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map(user => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.username}</TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => startEdit(user.id)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => setUserToDelete(user.id)}
-                          >
-                            <UserX className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Tem certeza que deseja excluir o usuário {user.name}? Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setUserToDelete(null)}>
-                              Cancelar
-                            </AlertDialogCancel>
-                            <AlertDialogAction onClick={confirmDelete}>
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8">
+                    Carregando usuários...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : displayUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8">
+                    Nenhum usuário encontrado. Clique em "Novo Usuário" para adicionar o primeiro usuário.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                displayUsers.map(user => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.username}</TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => startEdit(user.id)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => setUserToDelete(user.id)}
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir o usuário {user.name}? Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={() => setUserToDelete(null)}>
+                                Cancelar
+                              </AlertDialogCancel>
+                              <AlertDialogAction onClick={confirmDelete}>
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

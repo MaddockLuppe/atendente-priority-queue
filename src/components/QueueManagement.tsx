@@ -72,7 +72,7 @@ export const QueueManagement = ({ queueState, attendants, onCreateTicket, onCrea
             <span className="font-medium">Preferenciais</span>
           </div>
           <div className="text-2xl font-bold text-queue-preferential">
-            {attendants.filter(a => a.currentTicket?.type === 'preferencial').length}
+            {attendants.reduce((total, a) => total + a.queueTickets.filter(t => t.type === 'preferencial').length, 0)}
           </div>
           <div className="text-sm text-muted-foreground">
             Próxima: P{queueState.nextPreferentialNumber > 2 ? 1 : queueState.nextPreferentialNumber}
@@ -85,7 +85,7 @@ export const QueueManagement = ({ queueState, attendants, onCreateTicket, onCrea
             <span className="font-medium">Normais</span>
           </div>
           <div className="text-2xl font-bold text-queue-normal">
-            {attendants.filter(a => a.currentTicket?.type === 'normal').length}
+            {attendants.reduce((total, a) => total + a.queueTickets.filter(t => t.type === 'normal').length, 0)}
           </div>
           <div className="text-sm text-muted-foreground">
             Próxima: N{queueState.nextNormalNumber > 10 ? 1 : queueState.nextNormalNumber}

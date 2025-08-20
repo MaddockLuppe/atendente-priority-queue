@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AttendmentHistory } from '@/types';
 import * as XLSX from 'xlsx';
+import { getAttendanceHistoryByDate } from '@/integrations/supabase/client';
 
 interface HistoryViewerProps {
   onGetHistoryByDate: (date: string) => Promise<AttendmentHistory[]>;
@@ -38,13 +39,65 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
       return;
     }
     
-    console.log('✅ HistoryViewer: Data válida, chamando onGetHistoryByDate...');
-    const dayHistory = await onGetHistoryByDate(selectedDate);
-    console.log('📋 HistoryViewer: Histórico retornado:', dayHistory);
+    console.log('✅ HistoryViewer: Data válida, carregando histórico...');
     
-    setHistory(dayHistory);
-    setShowDialog(true);
-    console.log('🎯 HistoryViewer: Dialog aberto com', dayHistory.length, 'registros');
+    try {
+      const { data, error } = await getAttendanceHistoryByDate(selectedDate);
+      
+      if (error) {
+        console.error('❌ Erro ao carregar histórico:', error);
+        alert('Erro ao carregar histórico: ' + error.message);
+        return;
+      }
+      
+      const mappedHistory: AttendmentHistory[] = (data || []).map(item => ({
+        id: item.id,
+        attendantId: item.attendant_id,
+        attendantName: item.attendant_name,
+        ticketNumber: item.ticket_number,
+        ticketType: item.ticket_type as 'preferencial' | 'normal',
+        startTime: new Date(item.start_time),
+        endTime: new Date(item.end_time),
+        date: selectedDate,
+      }));
+      
+      // Verificar registros locais pendentes
+      try {
+        const pendingLocal = JSON.parse(localStorage.getItem('pendingHistoryRecords') || '[]');
+        const [day, month, year] = selectedDate.split('/');
+        const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        const localForDate = pendingLocal.filter((record: any) => 
+          record.service_date === isoDate
+        );
+        
+        if (localForDate.length > 0) {
+          console.log('📱 Encontrados', localForDate.length, 'registros locais pendentes');
+          
+          const localMapped: AttendmentHistory[] = localForDate.map((item: any) => ({
+            id: item.id,
+            attendantId: item.attendant_id,
+            attendantName: item.attendant_name,
+            ticketNumber: item.ticket_number,
+            ticketType: item.ticket_type as 'preferencial' | 'normal',
+            startTime: new Date(item.start_time),
+            endTime: new Date(item.end_time),
+            date: selectedDate,
+          }));
+          
+          mappedHistory.push(...localMapped);
+        }
+      } catch (localError) {
+        console.log('⚠️ Erro ao verificar registros locais:', localError);
+      }
+      
+      console.log('📋 HistoryViewer: Histórico carregado:', mappedHistory);
+      setHistory(mappedHistory);
+      setShowDialog(true);
+      console.log('🎯 HistoryViewer: Dialog aberto com', mappedHistory.length, 'registros');
+    } catch (error) {
+      console.error('❌ Erro inesperado:', error);
+      alert('Erro inesperado ao carregar histórico');
+    }
   };
 
   // Função para validar e formatar a data brasileira

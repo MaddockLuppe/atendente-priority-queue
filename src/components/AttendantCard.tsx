@@ -95,7 +95,7 @@ export const AttendantCard = ({
       <div className="flex gap-2">
         <Button 
           onClick={onCallNext} 
-          disabled={attendant.currentTicket !== undefined || attendant.queueTickets.length === 0} 
+          disabled={attendant.currentTicket !== undefined || !canCallNext} 
           variant="default" 
           className="flex-1 text-base"
         >
