@@ -385,35 +385,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const changePassword = async (userId: string, newPassword: string): Promise<void> => {
     try {
-      console.log('Iniciando alteração de senha para usuário:', userId);
-      
-      // Validar entrada
-      if (!userId || !newPassword) {
-        throw new Error('ID do usuário e nova senha são obrigatórios');
-      }
-      
-      if (newPassword.length < 6) {
-        throw new Error('A senha deve ter pelo menos 6 caracteres');
-      }
-      
-      // Gerar hash da nova senha
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      console.log('Hash da senha gerado com sucesso');
-      
-      // Atualizar senha no banco
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ password_hash: hashedPassword })
-        .eq('id', userId)
-        .select();
+      // Use RPC to update password securely on the server
+      const { error } = await supabase.rpc('admin_update_password', {
+        p_user_id: userId,
+        p_new_password: newPassword
+      });
       
       if (error) {
-        console.error('Erro do Supabase ao alterar senha:', error);
-        throw new Error(`Erro ao alterar senha: ${error.message}`);
-      }
-      
-      if (!data || data.length === 0) {
-        throw new Error('Usuário não encontrado');
+        throw new Error(error.message || 'Erro ao alterar senha');
       }
       
       console.log('Senha alterada com sucesso para usuário:', userId);

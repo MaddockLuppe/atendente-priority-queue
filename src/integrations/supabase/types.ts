@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -182,23 +182,66 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_create_user: {
+        Args: {
+          p_display_name: string
+          p_password: string
+          p_role: string
+          p_username: string
+        }
+        Returns: Json
+      }
+      admin_delete_user: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      admin_update_password: {
+        Args: { p_new_password: string; p_user_id: string }
+        Returns: Json
+      }
       authenticate_user: {
-        Args: { p_username: string; p_password_hash: string }
+        Args: { p_password_hash: string; p_username: string }
         Returns: {
-          user_id: string
-          username: string
           display_name: string
           role: string
+          user_id: string
+          username: string
         }[]
       }
       authenticate_user_secure: {
-        Args: { p_username: string; p_password: string }
+        Args: { p_password: string; p_username: string }
         Returns: {
-          id: string
-          username: string
           display_name: string
+          id: string
           role: string
+          username: string
         }[]
+      }
+      create_user_secure: {
+        Args:
+          | {
+              p_current_user_id?: string
+              p_display_name: string
+              p_password: string
+              p_role: string
+              p_username: string
+            }
+          | {
+              p_display_name: string
+              p_password: string
+              p_role: string
+              p_username: string
+            }
+        Returns: {
+          display_name: string
+          id: string
+          role: string
+          username: string
+        }[]
+      }
+      get_all_users: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
@@ -206,6 +249,18 @@ export type Database = {
       }
       get_user_role: {
         Args: { p_user_id: string }
+        Returns: string
+      }
+      insert_attendance_history: {
+        Args: {
+          p_attendant_id: string
+          p_attendant_name: string
+          p_end_time: string
+          p_service_date: string
+          p_start_time: string
+          p_ticket_number: string
+          p_ticket_type: string
+        }
         Returns: string
       }
       is_admin: {
