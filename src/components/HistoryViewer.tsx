@@ -321,7 +321,7 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <Input
           type="text"
           placeholder="DD/MM/YYYY"
@@ -330,15 +330,15 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
             const formatted = formatBrazilianDate(e.target.value);
             setSelectedDate(formatted);
           }}
-          className="w-auto"
+          className="w-full sm:w-auto"
           maxLength={10}
         />
-        <Button variant="outline" size="sm" onClick={handleViewHistory}>
+        <Button variant="outline" size="sm" onClick={handleViewHistory} className="w-full sm:w-auto">
           <Calendar className="w-4 h-4 mr-1" />
           Ver Histórico
         </Button>
         {history.length > 0 && (
-          <Button variant="outline" size="sm" onClick={exportToExcel}>
+          <Button variant="outline" size="sm" onClick={exportToExcel} className="w-full sm:w-auto">
             <Download className="w-4 h-4 mr-1" />
             Exportar Excel
           </Button>
@@ -346,11 +346,11 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Histórico de Atendimentos - {selectedDate}
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="break-words">Histórico - {selectedDate}</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -369,34 +369,34 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
                   <div className="grid gap-3">
                     {attendments
                       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-                      .map((item) => (
-                        <Card key={item.id} className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Badge variant={item.ticketType === 'preferencial' ? 'default' : 'secondary'}>
-                                {item.ticketNumber}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">
-                                {item.ticketType === 'preferencial' ? 'Preferencial' : 'Normal'}
-                              </span>
-                            </div>
-                            
-                            <div className="flex items-center gap-4 text-sm">
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                <span>Início: {formatTime(item.startTime)}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                <span>Fim: {formatTime(item.endTime)}</span>
-                              </div>
-                              <Badge variant="outline">
-                                {formatDuration(item.startTime, item.endTime)}
-                              </Badge>
-                            </div>
-                          </div>
-                        </Card>
-                      ))
+                       .map((item) => (
+                         <Card key={item.id} className="p-3 sm:p-4">
+                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                             <div className="flex items-center gap-2 sm:gap-3">
+                               <Badge variant={item.ticketType === 'preferencial' ? 'default' : 'secondary'} className="text-xs">
+                                 {item.ticketNumber}
+                               </Badge>
+                               <span className="text-xs sm:text-sm text-muted-foreground">
+                                 {item.ticketType === 'preferencial' ? 'Preferencial' : 'Normal'}
+                               </span>
+                             </div>
+                             
+                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                               <div className="flex items-center gap-1">
+                                 <Clock className="w-3 h-3" />
+                                 <span>Início: {formatTime(item.startTime)}</span>
+                               </div>
+                               <div className="flex items-center gap-1">
+                                 <Clock className="w-3 h-3" />
+                                 <span>Fim: {formatTime(item.endTime)}</span>
+                               </div>
+                               <Badge variant="outline" className="text-xs w-fit">
+                                 {formatDuration(item.startTime, item.endTime)}
+                               </Badge>
+                             </div>
+                           </div>
+                         </Card>
+                       ))
                     }
                   </div>
                 </div>
@@ -404,12 +404,12 @@ export const HistoryViewer = ({ onGetHistoryByDate }: HistoryViewerProps) => {
             )}
           </div>
 
-          <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={exportToExcel} disabled={history.length === 0}>
+          <div className="flex flex-col sm:flex-row justify-between gap-2 pt-4">
+            <Button variant="outline" onClick={exportToExcel} disabled={history.length === 0} className="w-full sm:w-auto">
               <Download className="w-4 h-4 mr-1" />
               Exportar Excel
             </Button>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+            <Button variant="outline" onClick={() => setShowDialog(false)} className="w-full sm:w-auto">
               Fechar
             </Button>
           </div>

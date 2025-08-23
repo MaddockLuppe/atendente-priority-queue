@@ -293,19 +293,19 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-4 px-4 sm:py-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Link to="/atendimentos">
             <Button variant="outline" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Gerenciamento de Usuários</h1>
+          <h1 className="text-lg sm:text-2xl font-bold">Gerenciamento de Usuários</h1>
         </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <UserPlus className="mr-2 h-4 w-4" />
               Novo Usuário
             </Button>
@@ -379,17 +379,18 @@ const UserManagement = () => {
       </div>
 
       <Card>
-        <CardContent className="p-6">
-          <Table>
-            <TableCaption>Lista de usuários do sistema</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
+        <CardContent className="p-3 sm:p-6">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableCaption className="text-xs sm:text-sm">Lista de usuários do sistema</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs sm:text-sm">Nome</TableHead>
+                  <TableHead className="text-xs sm:text-sm hidden sm:table-cell">Usuário</TableHead>
+                  <TableHead className="text-xs sm:text-sm">Tipo</TableHead>
+                  <TableHead className="text-right text-xs sm:text-sm">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
@@ -406,17 +407,23 @@ const UserManagement = () => {
               ) : (
                 displayUsers.map(user => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell className="font-medium text-xs sm:text-sm">
+                      <div className="flex flex-col">
+                        <span>{user.name}</span>
+                        <span className="text-xs text-muted-foreground sm:hidden">@{user.username}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-xs sm:text-sm">{user.username}</TableCell>
+                    <TableCell className="text-xs sm:text-sm">{getRoleBadge(user.role)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1 sm:gap-2">
                         <Button
                           variant="outline"
                           size="icon"
                           onClick={() => startEdit(user.id)}
+                          className="h-8 w-8 sm:h-10 sm:w-10"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                         <Button
                           variant="outline"
@@ -425,8 +432,9 @@ const UserManagement = () => {
                             setUserToChangePassword(user);
                             setShowPasswordDialog(true);
                           }}
+                          className="h-8 w-8 sm:h-10 sm:w-10"
                         >
-                          <Key className="h-4 w-4" />
+                          <Key className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -434,8 +442,9 @@ const UserManagement = () => {
                               variant="destructive"
                               size="icon"
                               onClick={() => setUserToDelete(user.id)}
+                              className="h-8 w-8 sm:h-10 sm:w-10"
                             >
-                              <UserX className="h-4 w-4" />
+                              <UserX className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -461,7 +470,8 @@ const UserManagement = () => {
                 ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
