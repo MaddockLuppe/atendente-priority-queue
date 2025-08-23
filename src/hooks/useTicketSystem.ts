@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase, insertAttendanceHistory, getAttendanceHistoryByDate } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getLocalDateISO } from '@/utils/dateUtils';
 
 export interface Attendant {
   id: string;
@@ -172,7 +173,8 @@ export const useTicketSystem = () => {
       console.log('🧪 Criando dados de teste para o histórico...');
       
       const today = new Date();
-      const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+      // Usar data local para evitar problemas de fuso horário
+      const todayStr = getLocalDateISO(today); // YYYY-MM-DD
       
       // Criar alguns registros de teste para hoje
       const testRecords = [
@@ -264,7 +266,8 @@ export const useTicketSystem = () => {
       // Verificar se há registros locais pendentes
       try {
         const pendingLocal = JSON.parse(localStorage.getItem('pendingHistoryRecords') || '[]');
-        const todayISO = new Date().toISOString().split('T')[0];
+        // Usar data local para evitar problemas de fuso horário
+        const todayISO = getLocalDateISO();
         const localForToday = pendingLocal.filter((record: any) => 
           record.service_date === todayISO
         );
@@ -580,7 +583,8 @@ export const useTicketSystem = () => {
 
       const completedAt = new Date();
       const calledAt = new Date(attendant.currentTicket.calledAt!);
-      const serviceDate = completedAt.toISOString().split('T')[0];
+      // Usar data local para evitar problemas de fuso horário
+      const serviceDate = getLocalDateISO(completedAt);
 
       // Limpa timers antes de fazer as operações
       if (timers[attendantId]) {

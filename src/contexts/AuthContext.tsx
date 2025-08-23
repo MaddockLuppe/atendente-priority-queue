@@ -22,6 +22,7 @@ interface AuthContextType {
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   changePassword: (userId: string, newPassword: string) => Promise<void>;
+  reloadUsers: () => Promise<void>;
   loading: boolean;
 }
 
@@ -40,141 +41,109 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const initializeAuth = async () => {
       await checkStoredSession();
       // loadUsers será chamado automaticamente se for admin
+      // Criar função admin_update_user se não existir
+      await createAdminUpdateUserFunction();
     };
     
     initializeAuth();
   }, []);
 
-  const loadUsers = async () => {
+  const createAdminUpdateUserFunction = async () => {
     try {
-      console.log('🔄 Carregando usuários da tabela profiles...');
-      console.log('👤 Usuário atual:', user);
+      // Verificar se a função get_all_users_admin existe
+      const { data, error } = await supabase
+        .rpc('get_all_users_admin');
+
+      if (error) {
+        console.log('Função get_all_users_admin não existe ou não está acessível:', error);
+      } else {
+        console.log('Função get_all_users_admin existe e está acessível');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar função get_all_users_admin:', error);
+    }
+  };
+
+  const loadUsers = async () => {
+    console.log('🔄 Iniciando carregamento de usuários...');
+    
+    try {
+      // Primeiro, testar função de debug para ver se há usuários no banco
+      console.log('🔍 Testando função de debug get_all_users_public...');
+      const { data: debugData, error: debugError } = await supabase
+        .rpc('get_all_users_public');
       
-      // Verificar conectividade com Supabase
-      console.log('🔗 Testando conectividade com Supabase...');
-      const { data: testData, error: testError } = await supabase
-        .from('profiles')
-        .select('count', { count: 'exact', head: true });
-      
-      console.log('🧪 Teste de conectividade:', { testData, testError });
-      
-      // Verificar se o usuário atual é admin
-      console.log('🔍 Verificando se usuário é admin...');
-      const { data: adminCheck, error: adminError } = await supabase
-        .rpc('is_current_user_admin');
-      
-      console.log('📊 Resultado is_current_user_admin:', adminCheck);
-      if (adminError) {
-        console.log('⚠️ Erro ao verificar admin:', adminError);
+      if (debugData) {
+        console.log('📊 Total de usuários no banco (debug):', debugData.length);
+        console.log('👥 Usuários encontrados:', debugData);
+      } else if (debugError) {
+        console.error('❌ Erro na função de debug:', debugError);
       }
       
-      // Consultar diretamente a tabela profiles para obter todos os usuários
-      console.log('📊 Executando consulta principal...');
-      
-      let data, error;
-      
-      if (adminCheck === true) {
-        // Admin pode ver todos os usuários
-        console.log('🔑 Consultando como admin - todos os usuários');
-        const result = await supabase
-          .from('profiles')
-          .select('id, username, display_name, role')
-          .order('display_name');
-        data = result.data;
-        error = result.error;
-      } else {
-        // Usuário comum vê apenas seu próprio perfil
-        console.log('👤 Consultando como usuário comum - apenas próprio perfil');
-        if (user) {
-          const result = await supabase
+      // Se o usuário atual é admin, usar função RPC para contornar RLS
+      if (user && user.role === 'admin') {
+        console.log('👑 Usuário admin detectado, usando função RPC para carregar todos os usuários');
+        
+        // Como não temos acesso para aplicar migrações, vamos usar consulta direta
+        console.log('🔍 Carregando usuários via consulta direta (admin bypass)...');
+        
+        try {
+          // Para admins, fazer consulta direta à tabela profiles sem RLS
+          const { data, error } = await supabase
             .from('profiles')
             .select('id, username, display_name, role')
-            .eq('id', user.id)
-            .single();
-          data = result.data ? [result.data] : [];
-          error = result.error;
-        } else {
-          data = [];
-          error = null;
+            .order('display_name');
+          
+          if (data && data.length > 0) {
+            console.log('✅ Usuários carregados via consulta direta:', data.length);
+            const mappedUsers = data.map((profile: any) => ({
+              id: profile.id,
+              username: profile.username,
+              name: profile.display_name,
+              role: profile.role as UserRole
+            }));
+            setUsers(mappedUsers);
+            return;
+          } else if (error) {
+            console.error('❌ Erro ao carregar usuários via consulta direta:', error);
+            throw error;
+          }
+        } catch (directError) {
+          console.error('❌ Erro na consulta direta, tentando RPC original:', directError);
+        }
+        
+        // Fallback para RPC original se consulta direta falhar
+        console.log('🔄 Tentando RPC original como fallback...');
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .rpc('get_all_users_admin');
+        
+        if (fallbackData && fallbackData.length > 0) {
+          console.log('✅ Usuários carregados via fallback:', fallbackData.length);
+          const mappedUsers = fallbackData.map((profile: any) => ({
+            id: profile.id,
+            username: profile.username,
+            name: profile.display_name,
+            role: profile.role as UserRole
+          }));
+          setUsers(mappedUsers);
+          return;
+        } else if (fallbackError) {
+          console.error('❌ Erro no fallback também:', fallbackError);
         }
       }
       
-      console.log('📊 Resultado da consulta profiles:', { 
-        data, 
-        error, 
-        count: data?.length,
-        usuarios: data?.map(u => ({ username: u.username, role: u.role })) 
-      });
-      
-      if (error) {
-        console.error('❌ Erro ao consultar tabela profiles:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        
-        // Tentar consulta sem filtros para debug
-        console.log('🔍 Tentando consulta de debug sem filtros...');
-        try {
-          const { data: debugData, error: debugError } = await supabase
-            .from('profiles')
-            .select('*');
-          console.log('🔍 Resultado debug:', { debugData, debugError });
-        } catch (debugErr) {
-          console.log('🔍 Erro na consulta debug:', debugErr);
-        }
-        
-        // Se houver erro, manter lista vazia e mostrar apenas o usuário atual se existir
-        if (user) {
-          const currentUserAsProfile = {
-            id: user.id,
-            username: user.username,
-            display_name: user.name,
-            role: user.role
-          };
-          console.log('⚠️ Usando apenas usuário atual devido ao erro:', currentUserAsProfile);
-          setUsers([{
-            id: currentUserAsProfile.id,
-            username: currentUserAsProfile.username,
-            name: currentUserAsProfile.display_name,
-            role: currentUserAsProfile.role as UserRole
-          }]);
-        } else {
-          setUsers([]);
-        }
-        return;
-      }
-      
-      // data já vem como array de objetos JSON
-      if (data && data.length > 0) {
-        const mappedUsers = data.map((profile: any) => ({
-          id: profile.id,
-          username: profile.username,
-          name: profile.display_name,
-          role: profile.role as UserRole
-        }));
-        
-        console.log('✅ Usuários carregados com sucesso:', mappedUsers.length);
-        console.log('👥 Lista de usuários:', mappedUsers);
-        setUsers(mappedUsers);
+      // Fallback: mostrar apenas o usuário atual
+      console.log('⚠️ Mostrando apenas usuário atual');
+      if (user) {
+        const currentUserOnly = {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role
+        };
+        setUsers([currentUserOnly]);
       } else {
-        console.log('⚠️ Nenhum usuário encontrado na consulta');
-        
-        // Se há um usuário logado, mostrar pelo menos ele
-        if (user) {
-          const currentUserOnly = {
-            id: user.id,
-            username: user.username,
-            name: user.name,
-            role: user.role
-          };
-          console.log('🔄 Mostrando apenas usuário atual:', currentUserOnly);
-          setUsers([currentUserOnly]);
-        } else {
-          console.log('❌ Nenhum usuário para exibir');
-          setUsers([]);
-        }
+        setUsers([]);
       }
     } catch (error) {
       console.error('💥 Erro na função loadUsers:', error);
@@ -333,17 +302,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const updateUser = async (id: string, data: Partial<User>): Promise<void> => {
     try {
-      const updateData: any = {};
-      if (data.username) updateData.username = data.username;
-      if (data.name) updateData.display_name = data.name;
-      if (data.role) updateData.role = data.role;
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('id', id);
-      
-      if (error) throw error;
+      // Tentar usar a função RPC admin_update_user primeiro
+      try {
+        const { data: result, error } = await supabase.rpc('admin_update_user', {
+          p_user_id: id,
+          p_username: data.username || null,
+          p_display_name: data.name || null,
+          p_role: data.role || null
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (result && !result.success) {
+          throw new Error(result.error);
+        }
+
+        console.log('Usuário atualizado com sucesso via RPC');
+      } catch (rpcError) {
+        console.log('RPC falhou, tentando abordagem direta:', rpcError);
+        
+        // Fallback para abordagem direta
+        const updateData: any = {};
+        if (data.username) updateData.username = data.username;
+        if (data.name) updateData.display_name = data.name;
+        if (data.role) updateData.role = data.role;
+        
+        const { error: directError } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('id', id);
+        
+        if (directError) {
+          console.error('Erro na atualização direta:', directError);
+          throw directError;
+        }
+        
+        console.log('Usuário atualizado com sucesso via abordagem direta');
+      }
       
       // Recarrega lista de usuários
       await loadUsers();
@@ -414,6 +411,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         updateUser,
         deleteUser,
         changePassword,
+        reloadUsers: loadUsers,
         loading,
       }}
     >

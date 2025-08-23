@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, UserX, Edit, User, ArrowLeft } from 'lucide-react';
+import { UserPlus, UserX, Edit, User, ArrowLeft, Key } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -40,8 +40,18 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 
 const UserManagement = () => {
-  const { users, addUser, updateUser, deleteUser, user: currentUser, loading } = useAuth();
+  const { users, addUser, updateUser, deleteUser, changePassword, user: currentUser, loading, reloadUsers } = useAuth();
   const { toast } = useToast();
+  
+  // Forçar carregamento dos usuários quando o componente for montado
+  useEffect(() => {
+    console.log('🔄 UserManagement montado, forçando carregamento de usuários...');
+    // Verificar se o usuário atual é admin e se há poucos usuários carregados
+    if (currentUser?.role === 'admin' && users.length <= 1) {
+      console.log('👑 Admin detectado com poucos usuários, recarregando...');
+      reloadUsers();
+    }
+  }, [currentUser, users.length, reloadUsers]);
   
   // Garantir que sempre temos pelo menos o usuário atual na lista
   const displayUsers = React.useMemo(() => {
@@ -83,6 +93,11 @@ const UserManagement = () => {
 
   // Estado para o diálogo de confirmação de exclusão
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+
+  // Estado para o diálogo de alteração de senha
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [userToChangePassword, setUserToChangePassword] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -403,6 +418,16 @@ const UserManagement = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            setUserToChangePassword(user);
+                            setShowPasswordDialog(true);
+                          }}
+                        >
+                          <Key className="h-4 w-4" />
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
@@ -501,6 +526,70 @@ const UserManagement = () => {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de Alteração de Senha */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Senha</DialogTitle>
+            <DialogDescription>
+              Digite a nova senha para {userToChangePassword?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Nova Senha</Label>
+              <Input
+                id="new-password"
+                type="password"
+                placeholder="Digite a nova senha"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowPasswordDialog(false);
+                setNewPassword('');
+                setUserToChangePassword(null);
+              }}>
+                Cancelar
+              </Button>
+              <Button onClick={async () => {
+                if (!newPassword) {
+                  toast({
+                    title: "Erro",
+                    description: "Digite uma nova senha",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
+                try {
+                  await changePassword(userToChangePassword.id, newPassword);
+                  toast({
+                    title: "Senha alterada",
+                    description: `Senha de ${userToChangePassword.name} foi alterada com sucesso`,
+                  });
+                  setShowPasswordDialog(false);
+                  setNewPassword('');
+                  setUserToChangePassword(null);
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : "Falha ao alterar senha";
+                  toast({
+                    title: "Erro ao alterar senha",
+                    description: errorMessage,
+                    variant: "destructive",
+                  });
+                }
+              }}>
+                Alterar Senha
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

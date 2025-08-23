@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getLocalDateISO } from '@/utils/dateUtils';
 
 const supabaseUrl = 'https://rahidenugbgnfrddtpxm.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhaGlkZW51Z2JnbmZyZGR0cHhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzMjA4NTgsImV4cCI6MjA2OTg5Njg1OH0.ybEvAnEUQPjvxh6ipQypONxW6iDxvnPO6MurroW-lZA';
@@ -194,7 +195,8 @@ export const getAttendanceStats = async (startDate?: string, endDate?: string) =
         totalCount = count || 0;
       }
       
-      const today = new Date().toISOString().split('T')[0];
+      // Usar data local para evitar problemas de fuso horário
+      const today = getLocalDateISO();
       const todayCount = records?.filter(r => r.service_date === today).length || 0;
       
       const stats = {
